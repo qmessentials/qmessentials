@@ -40,6 +40,7 @@ var migrateDbCmd = &cobra.Command{
 		}()
 
 		domain := filepath.Base(path)
+		cmd.Printf("Checking schema migrations for domain '%s'\n", domain)
 
 		ctx := cmd.Context()
 
@@ -59,6 +60,7 @@ var migrateDbCmd = &cobra.Command{
 				return fmt.Errorf("failed to retrieve current migration version: %w", err)
 			}
 		}
+		cmd.Printf("Current migration version for domain '%s': %d\n", domain, currentVersion)
 
 		entries, err := os.ReadDir(path)
 		if err != nil {
@@ -110,6 +112,7 @@ var migrateDbCmd = &cobra.Command{
 		}()
 
 		for _, m := range migrations {
+			cmd.Printf("Applying migration %s for domain '%s'\n", m.name, domain)
 			content, err := os.ReadFile(filepath.Join(path, m.name))
 			if err != nil {
 				return fmt.Errorf("failed to read migration file %s: %w", m.name, err)
@@ -125,7 +128,7 @@ var migrateDbCmd = &cobra.Command{
 				return fmt.Errorf("failed to update schema_migrations for %s: %w", m.name, err)
 			}
 		}
-
+		cmd.Printf("Migration completed for domain '%s'\n", domain)
 		return tx.Commit()
 	},
 }
