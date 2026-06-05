@@ -11,6 +11,7 @@ services:
       API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
       INTAKE_URL: "http://intake:8082"
       CONFIG_URL: "http://localhost:8081"
+      WEB_URL: "${WEB_URL}"
     depends_on:
       - intake
     networks:
@@ -38,11 +39,11 @@ services:
     environment:
       PORT: "8082"
       API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
-      DB_HOST: "${DB_HOST:-postgres}"
-      DB_PORT: "${DB_PORT:-5432}"
-      DB_NAME: "${DB_NAME:-qmessentials}"
-      DB_USER: "${DB_USER:-postgres}"
-      DB_PASSWORD: "${DB_PASSWORD:-postgres}"
+      DB_HOST: "${INTAKE_DB_HOST}"
+      DB_PORT: "${INTAKE_DB_PORT}"
+      DB_NAME: "${INTAKE_DB_NAME}"
+      DB_USER: "${INTAKE_DB_USER}"
+      DB_PASSWORD: "${INTAKE_DB_PASSWORD}"
     networks:
       - qmessentials-network
     healthcheck:

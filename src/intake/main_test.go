@@ -9,7 +9,8 @@ import (
 )
 
 func TestHealthCheck(t *testing.T) {
-	router := setupRouter()
+	t.Setenv("API_SHARED_SECRET", "test-secret")
+	router := setupRouter(nil)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequestWithContext(t.Context(), "GET", "/health", nil)

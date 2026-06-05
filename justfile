@@ -3,8 +3,11 @@ set dotenv-load := true
 default:
     @just --list
 
+run-services:
+    docker compose up --build
+
 [working-directory("src/web")]
-run:
+run-web:
     npm run dev
 
 [working-directory("src/utils")]
