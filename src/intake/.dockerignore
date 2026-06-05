@@ -1,0 +1,19 @@
+# Git
+.git
+.gitignore
+
+# Go
+vendor/
+*_test.go
+
+# Docker
+Dockerfile
+.dockerignore
+
+# IDEs
+.idea/
+.vscode/
+
+# Build artifacts
+bin/
+dist/

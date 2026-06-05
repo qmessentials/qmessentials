@@ -1,0 +1,16 @@
+# Ignore git and local development files
+.git
+.gitignore
+*.md
+
+# Ignore local build artifacts
+apigw
+
+# Ignore IDE files
+.idea
+.vscode
+*.swp
+
+# Ignore Docker files
+Dockerfile
+.dockerignore
