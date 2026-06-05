@@ -226,3 +226,5 @@ insert into product_test_configurations
      min_value, max_value, is_critical)
 select p.id, t.id, null, 'grams', 1, 55.0, 80.0, false
 from p, t;
+
+insert into samples (serial_number, part_number, status) values ('KETST-000001-001', 'KE-TST-TC00001', 'TESTING');
