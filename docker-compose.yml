@@ -1,21 +1,48 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     ports:
       - "5432:5432"
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-qme}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      POSTGRES_DB: "${POSTGRES_DB:-qme}"
+    volumes:
+      - postgres-data-v18:/var/lib/postgresql
+    networks:
+      - qmessentials-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-qme}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: ./src/utils
+      dockerfile: Dockerfile
     environment:
       POSTGRES_USER: "${POSTGRES_USER:-postgres}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
       POSTGRES_DB: "${POSTGRES_DB:-qmessentials}"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
+      CONFIGURATION_DB_HOST: "${CONFIGURATION_DB_HOST:-postgres}"
+      CONFIGURATION_DB_PORT: "${CONFIGURATION_DB_PORT:-5432}"
+      CONFIGURATION_DB_NAME: "${CONFIGURATION_DB_NAME:-qmessentials}"
+      CONFIGURATION_DB_USER: "${CONFIGURATION_DB_USER:-postgres}"
+      CONFIGURATION_DB_PASSWORD: "${CONFIGURATION_DB_PASSWORD:-postgres}"
+      INTAKE_DB_HOST: "${INTAKE_DB_HOST:-postgres}"
+      INTAKE_DB_PORT: "${INTAKE_DB_PORT:-5432}"
+      INTAKE_DB_NAME: "${INTAKE_DB_NAME:-qmessentials}"
+      INTAKE_DB_USER: "${INTAKE_DB_USER:-postgres}"
+      INTAKE_DB_PASSWORD: "${INTAKE_DB_PASSWORD:-postgres}"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - qmessentials-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    entrypoint: ["/bin/sh", "-c", "cd /app && bash scripts/migrate.sh"]
+    volumes:
+      - .:/app
 
   apigw:
     build:
@@ -31,7 +58,12 @@ services:
       CONFIG_URL: "http://localhost:8081"
       WEB_URL: "${WEB_URL}"
     depends_on:
-      - intake
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      intake:
+        condition: service_started
     networks:
       - qmessentials-network
     healthcheck:
@@ -65,8 +97,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      apigw:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     networks:
       - qmessentials-network
     healthcheck:
@@ -88,4 +120,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-data:
+  postgres-data-v18:

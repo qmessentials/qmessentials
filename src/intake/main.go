@@ -72,6 +72,7 @@ func setupRouter(sampleRepo repositories.SampleRepository) *gin.Engine {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch samples"})
 			return
 		}
+		slog.Info("fetched samples", "count", len(samples))
 		c.JSON(http.StatusOK, samples)
 	})
 
