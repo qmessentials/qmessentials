@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { buttonVariants } from '@/components/ui/button'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -31,7 +32,7 @@ function Home() {
                   <Link
                     key={action.path}
                     to={action.path}
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium hover:underline transition-colors"
+                    className={buttonVariants({ variant: "outline" })}
                   >
                     {action.label}
                   </Link>

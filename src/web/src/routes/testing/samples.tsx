@@ -1,6 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { sampleQueries } from '../../lib/intake/queries'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 export const Route = createFileRoute('/testing/samples')({
   component: TestingSamples,
@@ -18,24 +26,24 @@ function TestingSamples() {
       </header>
       
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-8 border border-gray-200 dark:border-gray-700">
-          <table>
-              <thead>
-              <tr>
-                  <th>Part Number</th>
-                  <th>Serial Number</th>
-                  <th>Status</th>
-              </tr>
-              </thead>
-              <tbody>
+          <Table>
+              <TableHeader>
+              <TableRow>
+                  <TableHead>Part Number</TableHead>
+                  <TableHead>Serial Number</TableHead>
+                  <TableHead>Status</TableHead>
+              </TableRow>
+              </TableHeader>
+              <TableBody>
               {samples?.map(sample => (
-                  <tr key={sample.id}>
-                      <td>{sample.partNumber}</td>
-                      <td>{sample.serialNumber}</td>
-                      <td>{sample.status}</td>
-                  </tr>
+                  <TableRow key={sample.id}>
+                      <TableCell>{sample.partNumber}</TableCell>
+                      <TableCell>{sample.serialNumber}</TableCell>
+                      <TableCell>{sample.status}</TableCell>
+                  </TableRow>
               ))}
-              </tbody>
-          </table>
+              </TableBody>
+          </Table>
       </div>
     </div>
   );
