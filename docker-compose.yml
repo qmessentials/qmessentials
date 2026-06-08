@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      POSTGRES_DB: "${POSTGRES_DB:-qmessentials}"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - qmessentials-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   apigw:
     build:
       context: ./src/apigw
@@ -39,11 +57,16 @@ services:
     environment:
       PORT: "8082"
       API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
-      DB_HOST: "${INTAKE_DB_HOST}"
-      DB_PORT: "${INTAKE_DB_PORT}"
-      DB_NAME: "${INTAKE_DB_NAME}"
-      DB_USER: "${INTAKE_DB_USER}"
-      DB_PASSWORD: "${INTAKE_DB_PASSWORD}"
+      DB_HOST: "${INTAKE_DB_HOST:-postgres}"
+      DB_PORT: "${INTAKE_DB_PORT:-5432}"
+      DB_NAME: "${INTAKE_DB_NAME:-qmessentials}"
+      DB_USER: "${INTAKE_DB_USER:-postgres}"
+      DB_PASSWORD: "${INTAKE_DB_PASSWORD:-postgres}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      apigw:
+        condition: service_started
     networks:
       - qmessentials-network
     healthcheck:
@@ -63,3 +86,6 @@ services:
 networks:
   qmessentials-network:
     driver: bridge
+
+volumes:
+  postgres-data:
