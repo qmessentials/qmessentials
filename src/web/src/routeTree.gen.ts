@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TestingSamplesRouteImport } from './routes/testing/samples'
+import { Route as TestingSamplesIndexRouteImport } from './routes/testing/samples.index'
+import { Route as TestingSamplesSerialNumberEditRouteImport } from './routes/testing/samples.$serialNumber.edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -28,35 +30,66 @@ const TestingSamplesRoute = TestingSamplesRouteImport.update({
   path: '/testing/samples',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TestingSamplesIndexRoute = TestingSamplesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TestingSamplesRoute,
+} as any)
+const TestingSamplesSerialNumberEditRoute =
+  TestingSamplesSerialNumberEditRouteImport.update({
+    id: '/$serialNumber/edit',
+    path: '/$serialNumber/edit',
+    getParentRoute: () => TestingSamplesRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/testing/samples': typeof TestingSamplesRoute
+  '/testing/samples': typeof TestingSamplesRouteWithChildren
+  '/testing/samples/': typeof TestingSamplesIndexRoute
+  '/testing/samples/$serialNumber/edit': typeof TestingSamplesSerialNumberEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/testing/samples': typeof TestingSamplesRoute
+  '/testing/samples': typeof TestingSamplesIndexRoute
+  '/testing/samples/$serialNumber/edit': typeof TestingSamplesSerialNumberEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/testing/samples': typeof TestingSamplesRoute
+  '/testing/samples': typeof TestingSamplesRouteWithChildren
+  '/testing/samples/': typeof TestingSamplesIndexRoute
+  '/testing/samples/$serialNumber/edit': typeof TestingSamplesSerialNumberEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/testing/samples'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/testing/samples'
+    | '/testing/samples/'
+    | '/testing/samples/$serialNumber/edit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/testing/samples'
-  id: '__root__' | '/' | '/login' | '/testing/samples'
+  to:
+    | '/'
+    | '/login'
+    | '/testing/samples'
+    | '/testing/samples/$serialNumber/edit'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/testing/samples'
+    | '/testing/samples/'
+    | '/testing/samples/$serialNumber/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
-  TestingSamplesRoute: typeof TestingSamplesRoute
+  TestingSamplesRoute: typeof TestingSamplesRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -82,13 +115,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TestingSamplesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/testing/samples/': {
+      id: '/testing/samples/'
+      path: '/'
+      fullPath: '/testing/samples/'
+      preLoaderRoute: typeof TestingSamplesIndexRouteImport
+      parentRoute: typeof TestingSamplesRoute
+    }
+    '/testing/samples/$serialNumber/edit': {
+      id: '/testing/samples/$serialNumber/edit'
+      path: '/$serialNumber/edit'
+      fullPath: '/testing/samples/$serialNumber/edit'
+      preLoaderRoute: typeof TestingSamplesSerialNumberEditRouteImport
+      parentRoute: typeof TestingSamplesRoute
+    }
   }
 }
+
+interface TestingSamplesRouteChildren {
+  TestingSamplesIndexRoute: typeof TestingSamplesIndexRoute
+  TestingSamplesSerialNumberEditRoute: typeof TestingSamplesSerialNumberEditRoute
+}
+
+const TestingSamplesRouteChildren: TestingSamplesRouteChildren = {
+  TestingSamplesIndexRoute: TestingSamplesIndexRoute,
+  TestingSamplesSerialNumberEditRoute: TestingSamplesSerialNumberEditRoute,
+}
+
+const TestingSamplesRouteWithChildren = TestingSamplesRoute._addFileChildren(
+  TestingSamplesRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
-  TestingSamplesRoute: TestingSamplesRoute,
+  TestingSamplesRoute: TestingSamplesRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
