@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { sampleQueries } from '../../lib/intake/queries'
+import { sampleQueries } from '@/lib/intake/queries.ts'
 import {
   Table,
   TableBody,

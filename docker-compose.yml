@@ -55,7 +55,7 @@ services:
       GIN_MODE: "release"
       API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
       INTAKE_URL: "http://intake:8082"
-      CONFIG_URL: "http://localhost:8081"
+      CONFIG_URL: "http://configuration:8081"
       WEB_URL: "${WEB_URL}"
     depends_on:
       postgres:
@@ -63,6 +63,8 @@ services:
       migrate:
         condition: service_completed_successfully
       intake:
+        condition: service_started
+      configuration:
         condition: service_started
     networks:
       - qmessentials-network
@@ -110,6 +112,41 @@ services:
           "--tries=1",
           "--spider",
           "http://localhost:8082/health",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  configuration:
+    build:
+      context: ./src/configuration
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: "8081"
+      API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
+      DB_HOST: "${CONFIGURATION_DB_HOST:-postgres}"
+      DB_PORT: "${CONFIGURATION_DB_PORT:-5432}"
+      DB_NAME: "${CONFIGURATION_DB_NAME:-qmessentials}"
+      DB_USER: "${CONFIGURATION_DB_USER:-postgres}"
+      DB_PASSWORD: "${CONFIGURATION_DB_PASSWORD:-postgres}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - qmessentials-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8081/health",
         ]
       interval: 30s
       timeout: 3s

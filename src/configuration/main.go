@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/qmessentials/qmessentials/intake/repositories"
+	"github.com/qmessentials/qmessentials/configuration/repositories"
 )
 
 func slogMiddleware() gin.HandlerFunc {
@@ -42,7 +42,7 @@ func slogMiddleware() gin.HandlerFunc {
 	}
 }
 
-func setupRouter(sampleRepo repositories.SampleRepository) *gin.Engine {
+func setupRouter(productRepo repositories.ProductRepository) *gin.Engine {
 	r := gin.New()
 	r.Use(slogMiddleware())
 	r.Use(gin.Recovery())
@@ -66,25 +66,14 @@ func setupRouter(sampleRepo repositories.SampleRepository) *gin.Engine {
 		}
 		c.Next()
 	})
-
-	r.GET("/samples", func(c *gin.Context) {
-		samples, err := sampleRepo.Get(c.Request.Context())
+	r.GET("/products/:partNumber", func(c *gin.Context) {
+		product, err := productRepo.GetByPartNumber(c.Request.Context(), c.Param("partNumber"))
 		if err != nil {
 			_ = c.Error(err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch samples"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch product"})
 			return
 		}
-		slog.Info("fetched samples", "count", len(samples))
-		c.JSON(http.StatusOK, samples)
-	})
-	r.GET("/samples/:serialNumber", func(c *gin.Context) {
-		sample, err := sampleRepo.GetBySerialNumber(c.Request.Context(), c.Param("serialNumber"))
-		if err != nil {
-			_ = c.Error(err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch sample"})
-			return
-		}
-		c.JSON(http.StatusOK, sample)
+		c.JSON(http.StatusOK, product)
 	})
 
 	// Add more routes here
@@ -97,7 +86,7 @@ func main() {
 
 	port, ok := os.LookupEnv("PORT")
 	if !ok {
-		port = "8082"
+		port = "8081"
 	}
 
 	dsn := fmt.Sprintf(
@@ -126,8 +115,8 @@ func main() {
 	}
 	slog.Info("successfully connected to database")
 
-	sampleRepo := repositories.NewSampleRepositoryPG(db)
-	r := setupRouter(sampleRepo)
+	productRepo := repositories.NewProductRepositoryPG(db)
+	r := setupRouter(productRepo)
 
 	slog.Info("starting server", "port", port)
 	if err = r.Run(":" + port); err != nil {
