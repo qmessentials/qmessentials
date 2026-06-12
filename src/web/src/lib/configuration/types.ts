@@ -14,6 +14,7 @@ export interface Test {
 export interface ProductTestConfiguration {
     product: Product
     test: Test
+    productTestSequence: number
     specificModifiers: string[]
     unit: string
     decimalPlaces: number
