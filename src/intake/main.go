@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nats-io/nats.go"
+	"github.com/qmessentials/qmessentials/intake/queue"
 	"github.com/qmessentials/qmessentials/intake/repositories"
 )
 
@@ -42,7 +44,7 @@ func slogMiddleware() gin.HandlerFunc {
 	}
 }
 
-func setupRouter(sampleRepo repositories.SampleRepository) *gin.Engine {
+func setupRouter(sampleRepo repositories.SampleRepository, publisher queue.Publisher) *gin.Engine {
 	r := gin.New()
 	r.Use(slogMiddleware())
 	r.Use(gin.Recovery())
@@ -86,6 +88,22 @@ func setupRouter(sampleRepo repositories.SampleRepository) *gin.Engine {
 		}
 		c.JSON(http.StatusOK, sample)
 	})
+	r.POST("/test-results", func(c *gin.Context) {
+		body, err := c.GetRawData()
+		if err != nil {
+			_ = c.Error(err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+			return
+		}
+
+		if err = publisher.Publish(c.Request.Context(), "test-results", body); err != nil {
+			_ = c.Error(err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish test result"})
+			return
+		}
+
+		c.Status(http.StatusCreated)
+	})
 
 	// Add more routes here
 
@@ -127,7 +145,21 @@ func main() {
 	slog.Info("successfully connected to database")
 
 	sampleRepo := repositories.NewSampleRepositoryPG(db)
-	r := setupRouter(sampleRepo)
+
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		natsURL = nats.DefaultURL
+	}
+	nc, err := nats.Connect(natsURL)
+	if err != nil {
+		slog.Error("failed to connect to NATS", "error", err)
+		os.Exit(1)
+	}
+	defer nc.Close()
+	slog.Info("successfully connected to NATS", "url", natsURL)
+
+	publisher := queue.NewNatsPublisher(nc)
+	r := setupRouter(sampleRepo, publisher)
 
 	slog.Info("starting server", "port", port)
 	if err = r.Run(":" + port); err != nil {

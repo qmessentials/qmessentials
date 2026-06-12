@@ -96,11 +96,14 @@ services:
       DB_NAME: "${INTAKE_DB_NAME:-qmessentials}"
       DB_USER: "${INTAKE_DB_USER:-postgres}"
       DB_PASSWORD: "${INTAKE_DB_PASSWORD:-postgres}"
+      NATS_URL: "${NATS_URL:-nats://nats:4222}"
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      nats:
+        condition: service_started
     networks:
       - qmessentials-network
     healthcheck:
@@ -151,6 +154,16 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+
+  nats:
+    image: nats:latest
+    restart: on-failure
+    ports:
+      - "4222:4222"
+      - "6222:6222"
+      - "8222:8222"
+    networks:
+      - qmessentials-network
 
 networks:
   qmessentials-network:
