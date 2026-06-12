@@ -7,6 +7,7 @@ import {Select, SelectTrigger, SelectValue, SelectItem, SelectContent} from "@/c
 import { useState, useMemo} from "react";
 import {productQueries} from "@/lib/configuration/queries.ts";
 import {Test} from "@/lib/configuration/types.ts";
+import {Button} from "@/components/ui/button.tsx";
 
 export const Route = createFileRoute('/testing/samples/$serialNumber/edit')({
   component: EditSample,
@@ -30,7 +31,8 @@ function EditSample() {
         testResult: number | null,
         unit: string,
         minValue: number | null,
-        maxValue: number | null
+        maxValue: number | null,
+        decimalPlaces: number
     }
     const mergedTests = useMemo<mergedTest[]>(() => {
         if (!product || !product.productTestConfigurations || !sample || !sample.testResults) {
@@ -50,6 +52,7 @@ function EditSample() {
                 unit: testResult?.unit ?? testConfiguration.unit,
                 minValue: testResult?.minValue ?? testConfiguration.minValue,
                 maxValue: testResult?.maxValue ?? testConfiguration.maxValue,
+                decimalPlaces: testResult?.decimalPlaces ?? testConfiguration.decimalPlaces,
             };
         });
     }, [product?.productTestConfigurations, sample?.testResults, sample?.partNumber, product?.partNumber]);
@@ -82,22 +85,50 @@ function EditSample() {
                   </Field>
               </FieldGroup>
           </form>
-          <hr className="my-4"/>
-          {mergedTests.map((test) => (
-              <div key={test.productTestSequence} className="mb-4">
-                  <h3>
-                      <span>{test.test.testName}</span>
-                      {test.specificModifiers.length > 0 ? <span className="text-sm text-gray-500 ml-2">({test.specificModifiers.join(', ')})</span> : ''}
-                  </h3>
-                  {test.testResult && (
-                      <div className="mt-2 text-sm">
-                          Result: {test.testResult} {test.unit}
-                      </div>
-                  )}
-              </div>
-          ))}
-
       </div>
+        <div className="mt-8 space-y-4">
+            {mergedTests.map((test) => (
+                <div key={test.productTestSequence} className="bg-white dark:bg-gray-800 rounded-md p-4 border border-gray-200 dark:border-gray-700">
+                    <form
+                        className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center"
+                        onSubmit={(e) => e.preventDefault()}
+                    >
+                        <div className="md:col-span-5 min-w-0">
+                            <div className="font-semibold text-gray-900 dark:text-white">
+                                {test.test.testName}
+                                {test.specificModifiers.length > 0 && (
+                                    <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                                        ({test.specificModifiers.join(', ')})
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                <span className="font-medium mr-1">Range:</span>
+                                {test.minValue?.toFixed(test.decimalPlaces) ?? 'N/A'} - {test.maxValue?.toFixed(test.decimalPlaces) ?? 'N/A'} {test.unit}
+                            </div>
+                        </div>
+                        <div className="md:col-span-3">
+                            <Input
+                                type="number"
+                                placeholder="Result"
+                                defaultValue={test.testResult ?? ''}
+                                step={test.decimalPlaces > 0 ? 1 / Math.pow(10, test.decimalPlaces) : "1"}
+                                className="h-9 w-full"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <span className="text-sm text-gray-500 dark:text-gray-400 truncate block">
+                                {test.unit}
+                            </span>
+                        </div>
+                        <Button type="submit" size="sm" className="w-full md:w-auto md:col-span-2 md:justify-self-end">
+                            Submit
+                        </Button>
+                    </form>
+                </div>
+            ))}
+        </div>
+
     </div>
   )
 }

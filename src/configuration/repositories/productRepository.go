@@ -41,7 +41,7 @@ func (r *ProductRepositoryPG) getProductByPartNumber(ctx context.Context, partNu
 }
 
 func (r *ProductRepositoryPG) getProductTestConfigurations(ctx context.Context, productId int) ([]models.ProductTestConfiguration, error) {
-	rows, err := r.db.QueryContext(ctx, "select id, product_id, test_id, coalesce(specific_modifiers, '{}'::text[]) as specific_modifiers, unit, decimal_places, min_value, max_value, is_active, created_at, updated_at from product_test_configurations where product_id = $1", productId)
+	rows, err := r.db.QueryContext(ctx, "select id, product_id, test_id, product_test_sequence, coalesce(specific_modifiers, '{}'::text[]) as specific_modifiers, unit, decimal_places, min_value, max_value, is_active, created_at, updated_at from product_test_configurations where product_id = $1", productId)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (r *ProductRepositoryPG) getProductTestConfigurations(ctx context.Context, 
 	var productTestConfigurations []models.ProductTestConfiguration
 	for rows.Next() {
 		var productTestConfiguration models.ProductTestConfiguration
-		err = rows.Scan(&productTestConfiguration.ID, &productTestConfiguration.ProductID, &productTestConfiguration.TestID, r.typeMap.SQLScanner(&productTestConfiguration.SpecificModifiers), &productTestConfiguration.Unit, &productTestConfiguration.DecimalPlaces, &productTestConfiguration.MinValue, &productTestConfiguration.MaxValue, &productTestConfiguration.IsActive, &productTestConfiguration.CreatedAt, &productTestConfiguration.UpdatedAt)
+		err = rows.Scan(&productTestConfiguration.ID, &productTestConfiguration.ProductID, &productTestConfiguration.TestID, &productTestConfiguration.ProductTestSequence, r.typeMap.SQLScanner(&productTestConfiguration.SpecificModifiers), &productTestConfiguration.Unit, &productTestConfiguration.DecimalPlaces, &productTestConfiguration.MinValue, &productTestConfiguration.MaxValue, &productTestConfiguration.IsActive, &productTestConfiguration.CreatedAt, &productTestConfiguration.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
