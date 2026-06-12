@@ -20,6 +20,15 @@ func (m *MockPublisher) Publish(ctx context.Context, subject string, data []byte
 	return args.Error(0)
 }
 
+type MockSubscriber struct {
+	mock.Mock
+}
+
+func (m *MockSubscriber) Subscribe(subject string, handler func(data []byte) error) error {
+	args := m.Called(subject, handler)
+	return args.Error(0)
+}
+
 func TestHealthCheck(t *testing.T) {
 	t.Setenv("API_SHARED_SECRET", "test-secret")
 	mockPublisher := new(MockPublisher)

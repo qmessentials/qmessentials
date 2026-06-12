@@ -159,6 +159,17 @@ func main() {
 	slog.Info("successfully connected to NATS", "url", natsURL)
 
 	publisher := queue.NewNatsPublisher(nc)
+	subscriber := queue.NewNatsSubscriber(nc)
+
+	err = subscriber.Subscribe("test-results", func(data []byte) error {
+		slog.Info("received test result from queue", "data", string(data))
+		return nil
+	})
+	if err != nil {
+		slog.Error("failed to subscribe to NATS queue", "error", err)
+		os.Exit(1)
+	}
+
 	r := setupRouter(sampleRepo, publisher)
 
 	slog.Info("starting server", "port", port)
