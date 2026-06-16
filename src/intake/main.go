@@ -158,8 +158,25 @@ func main() {
 	defer nc.Close()
 	slog.Info("successfully connected to NATS", "url", natsURL)
 
-	publisher := queue.NewNatsPublisher(nc)
-	subscriber := queue.NewNatsSubscriber(nc)
+	js, err := nc.JetStream()
+	if err != nil {
+		slog.Error("failed to get JetStream context", "error", err)
+		os.Exit(1)
+	}
+
+	if _, err = js.StreamInfo("TEST_RESULTS"); err != nil {
+		if _, err = js.AddStream(&nats.StreamConfig{
+			Name:      "TEST_RESULTS",
+			Subjects:  []string{"test-results"},
+			Retention: nats.WorkQueuePolicy,
+		}); err != nil {
+			slog.Error("failed to create JetStream stream", "error", err)
+			os.Exit(1)
+		}
+	}
+
+	publisher := queue.NewNatsPublisher(js)
+	subscriber := queue.NewNatsSubscriber(js)
 
 	err = subscriber.Subscribe("test-results", func(data []byte) error {
 		slog.Info("received test result from queue", "data", string(data))
