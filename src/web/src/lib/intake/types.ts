@@ -8,6 +8,18 @@ export interface Sample {
     testResults?: TestResult[]
 }
 
+export interface SubmitTestResultInput {
+    sampleId: number
+    partNumber: string
+    productTestSequence: number
+    modifiers: string[]
+    testResult: number
+    unit: string
+    decimalPlaces: number
+    minValue: number | null
+    maxValue: number | null
+}
+
 export interface TestResult {
     id: string
     sampleId: number

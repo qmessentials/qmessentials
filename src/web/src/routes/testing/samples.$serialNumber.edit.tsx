@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import {useQuery} from "@tanstack/react-query";
+import {useMutation, useQuery} from "@tanstack/react-query";
+import {testResultMutations} from "@/lib/intake/mutations.ts";
 import {sampleQueries} from "@/lib/intake/queries.ts";
 import {Field, FieldGroup, FieldLabel} from "@/components/ui/field.tsx";
 import {Input} from "@/components/ui/input.tsx";
@@ -22,6 +23,7 @@ function EditSample() {
         enabled: !!sample?.partNumber
     })
     const [status, setStatus] = useState<string | null>(sample?.status ?? null);
+    const {mutate: submitTestResult} = useMutation(testResultMutations.submit());
 
     type mergedTest = {
         partNumber: string,
@@ -91,7 +93,22 @@ function EditSample() {
                 <div key={test.productTestSequence} className="bg-white dark:bg-gray-800 rounded-md p-4 border border-gray-200 dark:border-gray-700">
                     <form
                         className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center"
-                        onSubmit={(e) => e.preventDefault()}
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const value = new FormData(e.currentTarget).get('testResult');
+                            if (value === null || value === '') return;
+                            submitTestResult({
+                                sampleId: sample!.id,
+                                partNumber: test.partNumber,
+                                productTestSequence: test.productTestSequence,
+                                modifiers: test.specificModifiers,
+                                testResult: Number(value),
+                                unit: test.unit,
+                                decimalPlaces: test.decimalPlaces,
+                                minValue: test.minValue,
+                                maxValue: test.maxValue,
+                            });
+                        }}
                     >
                         <div className="md:col-span-5 min-w-0">
                             <div className="font-semibold text-gray-900 dark:text-white">
@@ -111,6 +128,7 @@ function EditSample() {
                             <Input
                                 type="number"
                                 placeholder="Result"
+                                name="testResult"
                                 defaultValue={test.testResult ?? ''}
                                 step={test.decimalPlaces > 0 ? 1 / Math.pow(10, test.decimalPlaces) : "1"}
                                 className="h-9 w-full"
