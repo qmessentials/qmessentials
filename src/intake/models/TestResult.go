@@ -18,10 +18,10 @@ type TestResult struct {
 	MinValue            float64   `json:"minValue"`
 	MaxValue            float64   `json:"maxValue"`
 	HashValue           string    `json:"hashValue"`
-	VoidedAt            time.Time `json:"voidedAt"`
-	VoidedBy            string    `json:"voidedBy"`
-	VoidedReason        string    `json:"voidedReason"`
-	VoidComment         string    `json:"voidComment"`
+	VoidedAt            *time.Time `json:"voidedAt"`
+	VoidedBy            *string    `json:"voidedBy"`
+	VoidedReason        *string    `json:"voidedReason"`
+	VoidComment         *string    `json:"voidComment"`
 	CreatedAt           time.Time `json:"createdAt"`
 	UpdatedAt           time.Time `json:"updatedAt"`
 }

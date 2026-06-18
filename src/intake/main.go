@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/qmessentials/qmessentials/intake/messaging"
@@ -26,6 +26,9 @@ func main() {
 		port = "8082"
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	dsn := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		mustGetEnv("DB_USER"),
@@ -35,39 +38,28 @@ func main() {
 		mustGetEnv("DB_NAME"),
 	)
 
-	db, err := sql.Open("pgx", dsn)
+	db, closeDB, err := connectDB(ctx, dsn)
 	if err != nil {
-		slog.Error("failed to open database connection pool", "error", err)
+		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	defer func() {
-		slog.Info("closing database connection pool")
-		if err := db.Close(); err != nil {
-			slog.Error("failed to close database smoothly", "error", err)
-		}
-	}()
-	if err := db.Ping(); err != nil {
-		slog.Error("failed to ping database", "error", err)
-		os.Exit(1)
-	}
+	defer closeDB()
 	slog.Info("successfully connected to database")
 
 	sampleRepo := repositories.NewSampleRepositoryPG(db)
+	testResultRepo := repositories.NewTestResultRepositoryPG(db)
 
 	natsURL := os.Getenv("NATS_URL")
 	if natsURL == "" {
 		natsURL = nats.DefaultURL
 	}
-	nc, err := nats.Connect(natsURL)
+	nc, closeNATS, err := connectNATS(natsURL)
 	if err != nil {
 		slog.Error("failed to connect to NATS", "error", err)
 		os.Exit(1)
 	}
-	defer nc.Close()
+	defer closeNATS()
 	slog.Info("successfully connected to NATS", "url", natsURL)
-
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
 
 	js, err := jetstream.New(nc)
 	if err != nil {
@@ -91,8 +83,6 @@ func main() {
 	}
 
 	publisher := messaging.NewNatsPublisher(js)
-	testResultRepo := repositories.NewTestResultRepositoryPG(db)
-
 	subscriber := messaging.NewNatsSubscriber(js)
 
 	testResultConsumer := services.NewTestResultConsumer(subscriber, testResultRepo, new(os.Getenv("HASH_KEY")), services.HashPayload)
@@ -108,6 +98,26 @@ func main() {
 		slog.Error("server failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+func connectDB(ctx context.Context, dsn string) (*pgxpool.Pool, func(), error) {
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, nil, err
+	}
+	return pool, pool.Close, nil
+}
+
+func connectNATS(url string) (*nats.Conn, func(), error) {
+	nc, err := nats.Connect(url)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nc, nc.Close, nil
 }
 
 func mustGetEnv(key string) string {

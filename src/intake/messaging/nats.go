@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -35,6 +36,8 @@ func (s *NatsSubscriber) Subscribe(ctx context.Context, stream string, subject s
 		Durable:       "workers",
 		FilterSubject: subject,
 		AckPolicy:     jetstream.AckExplicitPolicy,
+		MaxDeliver:    5,
+		BackOff:       []time.Duration{5 * time.Second, 30 * time.Second, 2 * time.Minute, 10 * time.Minute},
 	})
 	if err != nil {
 		return err
@@ -58,15 +61,16 @@ func (s *NatsSubscriber) Subscribe(ctx context.Context, stream string, subject s
 			}
 			if err = handler(ctx, msg.Data()); err != nil {
 				slog.Error("message handler error", "error", err)
-				if errors.Is(err, &UnmarshalError{}) {
+				if errors.As(err, &UnmarshalError{}) {
 					msg.Term()
-				} else if errors.Is(err, &DatabaseError{}) {
+				} else if errors.As(err, &DatabaseError{}) {
 					msg.Nak()
 				} else {
 					slog.Error("unknown error", "error", err)
 					return
 				}
 			}
+			msg.Ack()
 		}
 	}()
 

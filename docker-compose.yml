@@ -157,7 +157,7 @@ services:
 
   nats:
     image: nats:latest
-    command: ["-js"]
+    command: ["-js", "-m", "8222"]
     restart: on-failure
     ports:
       - "4222:4222"

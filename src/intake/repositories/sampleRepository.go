@@ -3,10 +3,9 @@ package repositories
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qmessentials/qmessentials/intake/models"
 )
 
@@ -16,35 +15,30 @@ type SampleRepository interface {
 }
 
 type SampleRepositoryPG struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewSampleRepositoryPG(db *sql.DB) *SampleRepositoryPG {
+func NewSampleRepositoryPG(db *pgxpool.Pool) *SampleRepositoryPG {
 	return &SampleRepositoryPG{db}
 }
 
 func (r *SampleRepositoryPG) Get(ctx context.Context) ([]models.Sample, error) {
 	results := make([]models.Sample, 0)
-	rows, err := r.db.QueryContext(ctx, "select id, serial_number, part_number, status, created_at, updated_at from samples")
+	rows, err := r.db.Query(ctx, "select id, serial_number, part_number, status, created_at, updated_at from samples")
 	if err != nil {
 		slog.Error("failed to query samples", "error", err)
 		return nil, err
 	}
-	defer func() {
-		if err = rows.Close(); err != nil {
-			slog.Warn("failed to close rows", "error", err)
-		}
-	}()
+	defer rows.Close()
 	for rows.Next() {
 		var sample models.Sample
-		err = rows.Scan(&sample.ID, &sample.SerialNumber, &sample.PartNumber, &sample.Status, &sample.CreatedAt, &sample.UpdatedAt)
-		if err != nil {
+		if err = rows.Scan(&sample.ID, &sample.SerialNumber, &sample.PartNumber, &sample.Status, &sample.CreatedAt, &sample.UpdatedAt); err != nil {
 			slog.Error("failed to scan sample row", "error", err)
 			return nil, err
 		}
 		results = append(results, sample)
 	}
-	return results, err
+	return results, rows.Err()
 }
 
 func (r *SampleRepositoryPG) GetBySerialNumber(ctx context.Context, serialNumber string) (*models.Sample, error) {
@@ -61,10 +55,9 @@ func (r *SampleRepositoryPG) GetBySerialNumber(ctx context.Context, serialNumber
 }
 
 func (r *SampleRepositoryPG) getSampleBySerialNumber(ctx context.Context, serialNumber string) (*models.Sample, error) {
-	row := r.db.QueryRowContext(ctx, "select id, serial_number, part_number, status, created_at, updated_at from samples where serial_number = $1", serialNumber)
+	row := r.db.QueryRow(ctx, "select id, serial_number, part_number, status, created_at, updated_at from samples where serial_number = $1", serialNumber)
 	var sample models.Sample
-	err := row.Scan(&sample.ID, &sample.SerialNumber, &sample.PartNumber, &sample.Status, &sample.CreatedAt, &sample.UpdatedAt)
-	if err != nil {
+	if err := row.Scan(&sample.ID, &sample.SerialNumber, &sample.PartNumber, &sample.Status, &sample.CreatedAt, &sample.UpdatedAt); err != nil {
 		slog.Error("failed to scan sample row", "error", err)
 		return nil, err
 	}
@@ -73,24 +66,25 @@ func (r *SampleRepositoryPG) getSampleBySerialNumber(ctx context.Context, serial
 
 func (r *SampleRepositoryPG) getTestResultsForSample(ctx context.Context, sampleId int) ([]models.TestResult, error) {
 	results := make([]models.TestResult, 0)
-	rows, err := r.db.QueryContext(ctx, "select id, sample_id, part_number, product_test_sequence, coalesce(modifiers, '{}'::text[]), test_result, unit, decimal_places, min_value, max_value, hash_value, voided_at, voided_by, voided_reason, void_comment, created_at, updated_at from test_results where sample_id = $1", sampleId)
+	rows, err := r.db.Query(ctx, "select id, sample_id, part_number, product_test_sequence, coalesce(modifiers, '{}'::text[]), test_result, unit, decimal_places, min_value, max_value, hash_value, voided_at, voided_by, voided_reason, void_comment, created_at, updated_at from test_results where sample_id = $1", sampleId)
 	if err != nil {
 		slog.Error("failed to query test results", "error", err)
 		return nil, err
 	}
-	defer func() {
-		if err = rows.Close(); err != nil {
-			slog.Warn("failed to close rows", "error", err)
-		}
-	}()
+	defer rows.Close()
 	for rows.Next() {
 		var result models.TestResult
-		err = rows.Scan(&result.ID, &result.SampleID, &result.PartNumber, &result.ProductTestSequence, &result.Modifiers, &result.TestResult, &result.Unit, &result.DecimalPlaces, &result.MinValue, &result.MaxValue, &result.HashValue, &result.VoidedAt, &result.VoidedBy, &result.VoidedReason, &result.VoidComment, &result.CreatedAt, &result.UpdatedAt)
-		if err != nil {
+		if err = rows.Scan(
+			&result.ID, &result.SampleID, &result.PartNumber, &result.ProductTestSequence,
+			&result.Modifiers,
+			&result.TestResult, &result.Unit, &result.DecimalPlaces, &result.MinValue, &result.MaxValue,
+			&result.HashValue, &result.VoidedAt, &result.VoidedBy, &result.VoidedReason, &result.VoidComment,
+			&result.CreatedAt, &result.UpdatedAt,
+		); err != nil {
 			slog.Error("failed to scan test result row", "error", err)
 			return nil, err
 		}
 		results = append(results, result)
 	}
-	return results, nil
+	return results, rows.Err()
 }

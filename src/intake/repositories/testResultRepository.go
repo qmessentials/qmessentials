@@ -2,10 +2,10 @@ package repositories
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qmessentials/qmessentials/intake/models"
 )
 
@@ -14,16 +14,16 @@ type TestResultRepository interface {
 }
 
 type TestResultRepositoryPG struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewTestResultRepositoryPG(db *sql.DB) *TestResultRepositoryPG {
+func NewTestResultRepositoryPG(db *pgxpool.Pool) *TestResultRepositoryPG {
 	return &TestResultRepositoryPG{db}
 }
 
 func (r *TestResultRepositoryPG) Add(ctx context.Context, item *models.TestResult) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := r.db.QueryRowContext(ctx,
+	err := r.db.QueryRow(ctx,
 		`insert into test_results
 		(sample_id, part_number, product_test_sequence, modifiers, test_result, unit, decimal_places, min_value, max_value, hash_value)
 		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
