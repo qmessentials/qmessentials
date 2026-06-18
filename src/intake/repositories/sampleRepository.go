@@ -1,3 +1,4 @@
+// Package repositories provides database access
 package repositories
 
 import (
@@ -6,8 +7,8 @@ import (
 	"log/slog"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/qmessentials/qmessentials/intake/models"
 )
-import "github.com/qmessentials/qmessentials/intake/models"
 
 type SampleRepository interface {
 	Get(ctx context.Context) ([]models.Sample, error)

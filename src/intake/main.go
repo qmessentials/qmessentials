@@ -1,114 +1,22 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
-	"time"
+	"os/signal"
+	"syscall"
 
-	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go"
-	"github.com/qmessentials/qmessentials/intake/queue"
+	"github.com/nats-io/nats.go/jetstream"
+	"github.com/qmessentials/qmessentials/intake/messaging"
 	"github.com/qmessentials/qmessentials/intake/repositories"
+	"github.com/qmessentials/qmessentials/intake/routers"
+	"github.com/qmessentials/qmessentials/intake/services"
 )
-
-func slogMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		start := time.Now()
-		path := c.Request.URL.Path
-		query := c.Request.URL.RawQuery
-
-		c.Next()
-
-		status := c.Writer.Status()
-		method := c.Request.Method
-		latency := time.Since(start)
-
-		if len(c.Errors) > 0 {
-			for _, e := range c.Errors {
-				slog.Error("request error", "error", e.Error())
-			}
-		} else {
-			slog.Info("request",
-				"status", status,
-				"method", method,
-				"path", path,
-				"query", query,
-				"ip", c.ClientIP(),
-				"latency", latency,
-				"user-agent", c.Request.UserAgent(),
-			)
-		}
-	}
-}
-
-func setupRouter(sampleRepo repositories.SampleRepository, publisher queue.Publisher) *gin.Engine {
-	r := gin.New()
-	r.Use(slogMiddleware())
-	r.Use(gin.Recovery())
-
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "UP",
-		})
-	})
-
-	apiSharedSecret, ok := os.LookupEnv("API_SHARED_SECRET")
-	if !ok {
-		slog.Error("API_SHARED_SECRET must be set")
-		os.Exit(1)
-	}
-	r.Use(func(c *gin.Context) {
-		token := c.Request.Header.Get("X-Internal-Token")
-		if token != apiSharedSecret {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			return
-		}
-		c.Next()
-	})
-
-	r.GET("/samples", func(c *gin.Context) {
-		samples, err := sampleRepo.Get(c.Request.Context())
-		if err != nil {
-			_ = c.Error(err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch samples"})
-			return
-		}
-		slog.Info("fetched samples", "count", len(samples))
-		c.JSON(http.StatusOK, samples)
-	})
-	r.GET("/samples/:serialNumber", func(c *gin.Context) {
-		sample, err := sampleRepo.GetBySerialNumber(c.Request.Context(), c.Param("serialNumber"))
-		if err != nil {
-			_ = c.Error(err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch sample"})
-			return
-		}
-		c.JSON(http.StatusOK, sample)
-	})
-	r.POST("/test-results", func(c *gin.Context) {
-		body, err := c.GetRawData()
-		if err != nil {
-			_ = c.Error(err)
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
-			return
-		}
-
-		if err = publisher.Publish(c.Request.Context(), "test-results", body); err != nil {
-			_ = c.Error(err)
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish test result"})
-			return
-		}
-
-		c.Status(http.StatusCreated)
-	})
-
-	// Add more routes here
-
-	return r
-}
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
@@ -158,36 +66,42 @@ func main() {
 	defer nc.Close()
 	slog.Info("successfully connected to NATS", "url", natsURL)
 
-	js, err := nc.JetStream()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	js, err := jetstream.New(nc)
 	if err != nil {
-		slog.Error("failed to get JetStream context", "error", err)
+		slog.Error("failed to create JetStream client", "error", err)
 		os.Exit(1)
 	}
 
-	if _, err = js.StreamInfo("TEST_RESULTS"); err != nil {
-		if _, err = js.AddStream(&nats.StreamConfig{
+	if _, err = js.Stream(ctx, "TEST_RESULTS"); err != nil {
+		if !errors.Is(err, jetstream.ErrStreamNotFound) {
+			slog.Error("failed to check JetStream stream", "error", err)
+			os.Exit(1)
+		}
+		if _, err = js.CreateStream(ctx, jetstream.StreamConfig{
 			Name:      "TEST_RESULTS",
 			Subjects:  []string{"test-results"},
-			Retention: nats.WorkQueuePolicy,
+			Retention: jetstream.WorkQueuePolicy,
 		}); err != nil {
 			slog.Error("failed to create JetStream stream", "error", err)
 			os.Exit(1)
 		}
 	}
 
-	publisher := queue.NewNatsPublisher(js)
-	subscriber := queue.NewNatsSubscriber(js)
+	publisher := messaging.NewNatsPublisher(js)
+	testResultRepo := repositories.NewTestResultRepositoryPG(db)
 
-	err = subscriber.Subscribe("test-results", func(data []byte) error {
-		slog.Info("received test result from queue", "data", string(data))
-		return nil
-	})
-	if err != nil {
+	subscriber := messaging.NewNatsSubscriber(js)
+
+	testResultConsumer := services.NewTestResultConsumer(subscriber, testResultRepo, new(os.Getenv("HASH_KEY")), services.HashPayload)
+	if err = testResultConsumer.Subscribe(ctx, "TEST_RESULTS", "test-results"); err != nil {
 		slog.Error("failed to subscribe to NATS queue", "error", err)
 		os.Exit(1)
 	}
 
-	r := setupRouter(sampleRepo, publisher)
+	r := routers.Setup(sampleRepo, publisher)
 
 	slog.Info("starting server", "port", port)
 	if err = r.Run(":" + port); err != nil {
