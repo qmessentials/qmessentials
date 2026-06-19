@@ -102,8 +102,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-      nats:
-        condition: service_started
+      nats-setup:
+        condition: service_completed_successfully
     networks:
       - qmessentials-network
     healthcheck:
@@ -148,8 +148,7 @@ services:
           "wget",
           "--no-verbose",
           "--tries=1",
-          "--spider",
-          "http://localhost:8081/health",
+          "http://localhost:8081/healthz",
         ]
       interval: 30s
       timeout: 3s
@@ -165,6 +164,28 @@ services:
       - "8222:8222"
     networks:
       - qmessentials-network
+
+  nats-setup:
+    image: natsio/nats-box:latest
+    depends_on:
+      nats:
+        condition: service_started
+    networks:
+      - qmessentials-network
+    command:
+      - sh
+      - -c
+      - |
+        until nats stream add TEST_RESULTS \
+          --server=nats://nats:4222 \
+          --subjects=test-results \
+          --retention=workq \
+          --storage=file \
+          --replicas=1 \
+          --defaults; do
+          echo "Waiting for NATS..."
+          sleep 1
+        done
 
 networks:
   qmessentials-network:
