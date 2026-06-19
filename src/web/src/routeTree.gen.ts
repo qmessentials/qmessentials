@@ -9,9 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TestingSamplesRouteImport } from './routes/testing/samples'
+import { Route as TestingSamplesIndexRouteImport } from './routes/testing/samples.index'
+import { Route as TestingSamplesSerialNumberEditRouteImport } from './routes/testing/samples.$serialNumber.edit'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -22,35 +30,77 @@ const TestingSamplesRoute = TestingSamplesRouteImport.update({
   path: '/testing/samples',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TestingSamplesIndexRoute = TestingSamplesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TestingSamplesRoute,
+} as any)
+const TestingSamplesSerialNumberEditRoute =
+  TestingSamplesSerialNumberEditRouteImport.update({
+    id: '/$serialNumber/edit',
+    path: '/$serialNumber/edit',
+    getParentRoute: () => TestingSamplesRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/testing/samples': typeof TestingSamplesRoute
+  '/login': typeof LoginRoute
+  '/testing/samples': typeof TestingSamplesRouteWithChildren
+  '/testing/samples/': typeof TestingSamplesIndexRoute
+  '/testing/samples/$serialNumber/edit': typeof TestingSamplesSerialNumberEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/testing/samples': typeof TestingSamplesRoute
+  '/login': typeof LoginRoute
+  '/testing/samples': typeof TestingSamplesIndexRoute
+  '/testing/samples/$serialNumber/edit': typeof TestingSamplesSerialNumberEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/testing/samples': typeof TestingSamplesRoute
+  '/login': typeof LoginRoute
+  '/testing/samples': typeof TestingSamplesRouteWithChildren
+  '/testing/samples/': typeof TestingSamplesIndexRoute
+  '/testing/samples/$serialNumber/edit': typeof TestingSamplesSerialNumberEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/testing/samples'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/testing/samples'
+    | '/testing/samples/'
+    | '/testing/samples/$serialNumber/edit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/testing/samples'
-  id: '__root__' | '/' | '/testing/samples'
+  to:
+    | '/'
+    | '/login'
+    | '/testing/samples'
+    | '/testing/samples/$serialNumber/edit'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/testing/samples'
+    | '/testing/samples/'
+    | '/testing/samples/$serialNumber/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  TestingSamplesRoute: typeof TestingSamplesRoute
+  LoginRoute: typeof LoginRoute
+  TestingSamplesRoute: typeof TestingSamplesRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -65,12 +115,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TestingSamplesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/testing/samples/': {
+      id: '/testing/samples/'
+      path: '/'
+      fullPath: '/testing/samples/'
+      preLoaderRoute: typeof TestingSamplesIndexRouteImport
+      parentRoute: typeof TestingSamplesRoute
+    }
+    '/testing/samples/$serialNumber/edit': {
+      id: '/testing/samples/$serialNumber/edit'
+      path: '/$serialNumber/edit'
+      fullPath: '/testing/samples/$serialNumber/edit'
+      preLoaderRoute: typeof TestingSamplesSerialNumberEditRouteImport
+      parentRoute: typeof TestingSamplesRoute
+    }
   }
 }
 
+interface TestingSamplesRouteChildren {
+  TestingSamplesIndexRoute: typeof TestingSamplesIndexRoute
+  TestingSamplesSerialNumberEditRoute: typeof TestingSamplesSerialNumberEditRoute
+}
+
+const TestingSamplesRouteChildren: TestingSamplesRouteChildren = {
+  TestingSamplesIndexRoute: TestingSamplesIndexRoute,
+  TestingSamplesSerialNumberEditRoute: TestingSamplesSerialNumberEditRoute,
+}
+
+const TestingSamplesRouteWithChildren = TestingSamplesRoute._addFileChildren(
+  TestingSamplesRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  TestingSamplesRoute: TestingSamplesRoute,
+  LoginRoute: LoginRoute,
+  TestingSamplesRoute: TestingSamplesRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
