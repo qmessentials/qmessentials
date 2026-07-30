@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:18-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: "${POSTGRES_USER:-qme}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
@@ -153,6 +153,98 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+
+  subscription:
+    build:
+      context: ./src/subscription
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      PORT: "8083"
+      API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
+      DB_HOST: "${SUBSCRIPTION_DB_HOST:-postgres}"
+      DB_PORT: "${SUBSCRIPTION_DB_PORT:-5432}"
+      DB_NAME: "${SUBSCRIPTION_DB_NAME:-qmessentials}"
+      DB_USER: "${SUBSCRIPTION_DB_USER:-postgres}"
+      DB_PASSWORD: "${SUBSCRIPTION_DB_PASSWORD:-postgres}"
+      NATS_URL: "${NATS_URL:-nats://nats:4222}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      nats-setup:
+        condition: service_completed_successfully
+    networks:
+      - qmessentials-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8083/health",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  calculation-broker:
+    build:
+      context: ./src/calculation-broker
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      PORT: "8084"
+      SUBSCRIPTION_URL: "http://subscription:8083"
+      NATS_URL: "${NATS_URL:-nats://nats:4222}"
+    depends_on:
+      subscription:
+        condition: service_healthy
+      nats-setup:
+        condition: service_completed_successfully
+    networks:
+      - qmessentials-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8084/health",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  calculation-engine:
+    build:
+      context: ./src/calculation-engine
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: "${CALCULATION_DB_HOST:-postgres}"
+      DB_PORT: "${CALCULATION_DB_PORT:-5432}"
+      DB_NAME: "${CALCULATION_DB_NAME:-qmessentials}"
+      DB_USER: "${CALCULATION_DB_USER:-postgres}"
+      DB_PASSWORD: "${CALCULATION_DB_PASSWORD:-postgres}"
+      NATS_URL: "${NATS_URL:-nats://nats:4222}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      nats-setup:
+        condition: service_completed_successfully
+      calculation-broker:
+        condition: service_healthy
+    networks:
+      - qmessentials-network
 
   nats:
     image: nats:latest
