@@ -1,0 +1,25 @@
+[sqlfluff]
+dialect = postgres
+templater = raw
+max_line_length = 120
+# AL03 and AL08 produce false positives for INSERT ... SELECT seed statements.
+# RF04 flags established schema identifiers such as "unit" and "current".
+exclude_rules = AL03, AL08, RF04
+
+[sqlfluff:indentation]
+tab_space_size = 4
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = lower

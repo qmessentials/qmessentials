@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:18-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: "${POSTGRES_USER:-qme}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
@@ -35,6 +35,11 @@ services:
       INTAKE_DB_NAME: "${INTAKE_DB_NAME:-qmessentials}"
       INTAKE_DB_USER: "${INTAKE_DB_USER:-postgres}"
       INTAKE_DB_PASSWORD: "${INTAKE_DB_PASSWORD:-postgres}"
+      SUBSCRIPTION_DB_HOST: "${SUBSCRIPTION_DB_HOST:-postgres}"
+      SUBSCRIPTION_DB_PORT: "${SUBSCRIPTION_DB_PORT:-5432}"
+      SUBSCRIPTION_DB_NAME: "${SUBSCRIPTION_DB_NAME:-qmessentials}"
+      SUBSCRIPTION_DB_USER: "${SUBSCRIPTION_DB_USER:-postgres}"
+      SUBSCRIPTION_DB_PASSWORD: "${SUBSCRIPTION_DB_PASSWORD:-postgres}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +61,7 @@ services:
       API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
       INTAKE_URL: "http://intake:8082"
       CONFIG_URL: "http://configuration:8081"
+      SUBSCRIPTION_URL: "http://subscription:8083"
       WEB_URL: "${WEB_URL}"
     depends_on:
       postgres:
@@ -65,6 +71,8 @@ services:
       intake:
         condition: service_started
       configuration:
+        condition: service_started
+      subscription:
         condition: service_started
     networks:
       - qmessentials-network
@@ -96,14 +104,17 @@ services:
       DB_NAME: "${INTAKE_DB_NAME:-qmessentials}"
       DB_USER: "${INTAKE_DB_USER:-postgres}"
       DB_PASSWORD: "${INTAKE_DB_PASSWORD:-postgres}"
+      CONFIG_URL: "http://configuration:8081"
       NATS_URL: "${NATS_URL:-nats://nats:4222}"
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-      nats:
-        condition: service_started
+      nats-setup:
+        condition: service_completed_successfully
+      configuration:
+        condition: service_healthy
     networks:
       - qmessentials-network
     healthcheck:
@@ -148,12 +159,88 @@ services:
           "wget",
           "--no-verbose",
           "--tries=1",
-          "--spider",
           "http://localhost:8081/health",
         ]
       interval: 30s
       timeout: 3s
       retries: 3
+
+  subscription:
+    build:
+      context: ./src/subscription
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      PORT: "8083"
+      API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
+      DB_HOST: "${SUBSCRIPTION_DB_HOST:-postgres}"
+      DB_PORT: "${SUBSCRIPTION_DB_PORT:-5432}"
+      DB_NAME: "${SUBSCRIPTION_DB_NAME:-qmessentials}"
+      DB_USER: "${SUBSCRIPTION_DB_USER:-postgres}"
+      DB_PASSWORD: "${SUBSCRIPTION_DB_PASSWORD:-postgres}"
+      NATS_URL: "${NATS_URL:-nats://nats:4222}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      nats-setup:
+        condition: service_completed_successfully
+    networks:
+      - qmessentials-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8083/health",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  calculation-broker:
+    build:
+      context: ./src/calculation-broker
+      dockerfile: Dockerfile
+    environment:
+      SUBSCRIPTION_URL: "http://subscription:8083"
+      API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
+      NATS_URL: "${NATS_URL:-nats://nats:4222}"
+    depends_on:
+      subscription:
+        condition: service_healthy
+      nats-setup:
+        condition: service_completed_successfully
+    networks:
+      - qmessentials-network
+
+  calculation-engine:
+    build:
+      context: ./src/calculation-engine
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: "${CALCULATION_DB_HOST:-postgres}"
+      DB_PORT: "${CALCULATION_DB_PORT:-5432}"
+      DB_NAME: "${CALCULATION_DB_NAME:-qmessentials}"
+      DB_USER: "${CALCULATION_DB_USER:-postgres}"
+      DB_PASSWORD: "${CALCULATION_DB_PASSWORD:-postgres}"
+      NATS_URL: "${NATS_URL:-nats://nats:4222}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      nats-setup:
+        condition: service_completed_successfully
+      calculation-broker:
+        condition: service_started
+    networks:
+      - qmessentials-network
 
   nats:
     image: nats:latest
@@ -165,6 +252,28 @@ services:
       - "8222:8222"
     networks:
       - qmessentials-network
+
+  nats-setup:
+    image: natsio/nats-box:latest
+    depends_on:
+      nats:
+        condition: service_started
+    networks:
+      - qmessentials-network
+    command:
+      - sh
+      - -c
+      - |
+        until nats stream add TEST_RESULTS \
+          --server=nats://nats:4222 \
+          --subjects=test-results \
+          --retention=workq \
+          --storage=file \
+          --replicas=1 \
+          --defaults; do
+          echo "Waiting for NATS..."
+          sleep 1
+        done
 
 networks:
   qmessentials-network:

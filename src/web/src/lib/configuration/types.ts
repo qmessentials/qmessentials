@@ -8,6 +8,7 @@ export interface Product {
 export interface Test {
     id: number
     testName: string
+    canonicalTestName: string
     documentationReferences: string[]
 }
 

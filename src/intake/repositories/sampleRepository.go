@@ -46,7 +46,7 @@ func (r *SampleRepositoryPG) GetBySerialNumber(ctx context.Context, serialNumber
 	if err != nil {
 		return nil, err
 	}
-	testResults, err := r.getTestResultsForSample(ctx, sample.ID)
+	testResults, err := r.getTestResultsForSample(ctx, sample.SerialNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -64,9 +64,9 @@ func (r *SampleRepositoryPG) getSampleBySerialNumber(ctx context.Context, serial
 	return &sample, nil
 }
 
-func (r *SampleRepositoryPG) getTestResultsForSample(ctx context.Context, sampleId int) ([]models.TestResult, error) {
+func (r *SampleRepositoryPG) getTestResultsForSample(ctx context.Context, serialNumber string) ([]models.TestResult, error) {
 	results := make([]models.TestResult, 0)
-	rows, err := r.db.Query(ctx, "select id, sample_id, part_number, product_test_sequence, coalesce(modifiers, '{}'::text[]), test_result, unit, decimal_places, min_value, max_value, hash_value, voided_at, voided_by, voided_reason, void_comment, created_at, updated_at from test_results where sample_id = $1", sampleId)
+	rows, err := r.db.Query(ctx, "select id, serial_number, part_number, canonical_test_name, coalesce(modifiers, '{}'::text[]), test_result, unit, decimal_places, min_value, max_value, hash_value, voided_at, voided_by, voided_reason, void_comment, created_at, updated_at from test_results where serial_number = $1", serialNumber)
 	if err != nil {
 		slog.Error("failed to query test results", "error", err)
 		return nil, err
@@ -75,7 +75,7 @@ func (r *SampleRepositoryPG) getTestResultsForSample(ctx context.Context, sample
 	for rows.Next() {
 		var result models.TestResult
 		if err = rows.Scan(
-			&result.ID, &result.SampleID, &result.PartNumber, &result.ProductTestSequence,
+			&result.ID, &result.SerialNumber, &result.PartNumber, &result.CanonicalTestName,
 			&result.Modifiers,
 			&result.TestResult, &result.Unit, &result.DecimalPlaces, &result.MinValue, &result.MaxValue,
 			&result.HashValue, &result.VoidedAt, &result.VoidedBy, &result.VoidedReason, &result.VoidComment,

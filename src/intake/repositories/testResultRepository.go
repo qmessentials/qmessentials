@@ -25,12 +25,12 @@ func (r *TestResultRepositoryPG) Add(ctx context.Context, item *models.TestResul
 	var id uuid.UUID
 	err := r.db.QueryRow(ctx,
 		`insert into test_results
-		(sample_id, part_number, product_test_sequence, modifiers, test_result, unit, decimal_places, min_value, max_value, hash_value)
+		(serial_number, part_number, canonical_test_name, modifiers, test_result, unit, decimal_places, min_value, max_value, hash_value)
 		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		returning id`,
-		item.SampleID,
+		item.SerialNumber,
 		item.PartNumber,
-		item.ProductTestSequence,
+		item.CanonicalTestName,
 		item.Modifiers,
 		item.TestResult,
 		item.Unit,

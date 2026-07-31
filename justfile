@@ -30,6 +30,23 @@ migrate-intake:
         --password "$INTAKE_DB_PASSWORD" \
         --path ../db-migrations/intake
 
+[working-directory("src/utils")]
+migrate-subscription:
+    go run . migrate-db \
+        --host "$SUBSCRIPTION_DB_HOST" \
+        --port "$SUBSCRIPTION_DB_PORT" \
+        --database "$SUBSCRIPTION_DB_NAME" \
+        --user "$SUBSCRIPTION_DB_USER" \
+        --password "$SUBSCRIPTION_DB_PASSWORD" \
+        --path ../db-migrations/subscription
+
 migrate-all:
     just migrate-configuration
     just migrate-intake
+    just migrate-subscription
+
+lint-sql:
+    sqlfluff lint $(git ls-files '*.sql')
+
+fix-sql:
+    sqlfluff fix $(git ls-files '*.sql')
