@@ -20,10 +20,17 @@ type subscriptionRepositoryStub struct {
 	err           error
 	ownerUserID   string
 	activeOnly    bool
+	getActive     bool
 	createInput   models.CreateSubscriptionInput
 	updateInput   models.UpdateSubscriptionInput
 	id            int
 	called        bool
+}
+
+func (r *subscriptionRepositoryStub) GetActive(_ context.Context) ([]models.Subscription, error) {
+	r.called = true
+	r.getActive = true
+	return r.subscriptions, r.err
 }
 
 func (r *subscriptionRepositoryStub) GetForUser(_ context.Context, ownerUserID string, activeOnly bool) ([]models.Subscription, error) {
@@ -94,6 +101,43 @@ func TestGetSubscriptionsDefaultsToActiveOnly(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), `"versionId":3`) {
 		t.Fatalf("expected subscription response, got %s", response.Body.String())
+	}
+}
+
+func TestGetAllActiveSubscriptionsDoesNotRequireUserIdentity(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &subscriptionRepositoryStub{subscriptions: []models.Subscription{{
+		ID: 7, OwnerUserID: "another-user", RuleText: "plant:CHA", VersionID: 3, IsActive: true,
+	}}}
+
+	response := performRequest(
+		Setup(repo, "secret"),
+		"/subscriptions/active",
+		map[string]string{"X-Internal-Token": "secret"},
+	)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, response.Code, response.Body.String())
+	}
+	if !repo.getActive {
+		t.Fatal("expected active subscription repository method to be called")
+	}
+	if !strings.Contains(response.Body.String(), `"ownerUserId":"another-user"`) {
+		t.Fatalf("expected active subscriptions response, got %s", response.Body.String())
+	}
+}
+
+func TestGetAllActiveSubscriptionsRequiresInternalToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &subscriptionRepositoryStub{}
+
+	response := performRequest(Setup(repo, "secret"), "/subscriptions/active", nil)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+	if repo.called {
+		t.Fatal("repository should not be called")
 	}
 }
 

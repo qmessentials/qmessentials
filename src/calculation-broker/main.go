@@ -1,59 +1,58 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/qmessentials/qmessentials/calculation-broker/services"
 )
 
 const serviceName = "calculation-broker"
 
-type subscriptionEvent struct {
-	SubscriptionID string `json:"subscriptionId" binding:"required"`
-	Revision       int64  `json:"revision" binding:"required"`
-	Action         string `json:"action" binding:"required"`
-}
+func run(ctx context.Context, subscriptionService services.SubscriptionService) error {
+	slog.Info("worker started", "service", serviceName)
+	subscriptions, err := subscriptionService.GetActive(ctx)
+	if err != nil {
+		return err
+	}
+	slog.Info("loaded active subscriptions", "service", serviceName, "count", len(subscriptions))
 
-func setupRouter() *gin.Engine {
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"service": serviceName,
-			"status":  "UP",
-		})
-	})
-	router.POST("/subscriptions/events", func(c *gin.Context) {
-		var event subscriptionEvent
-		if err := c.ShouldBindJSON(&event); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		slog.Info(
-			"received subscription event",
-			"subscriptionId", event.SubscriptionID,
-			"revision", event.Revision,
-			"action", event.Action,
-		)
-		c.Status(http.StatusAccepted)
-	})
-	return router
+	<-ctx.Done()
+	slog.Info("worker stopped", "service", serviceName)
+	return nil
 }
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8084"
-	}
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
 
-	slog.Info("starting service", "service", serviceName, "port", port)
-	if err := setupRouter().Run(":" + port); err != nil {
-		slog.Error("server failed", "service", serviceName, "error", err)
+	subscriptionService := services.NewSubscriptionServiceHTTP(
+		&http.Client{Timeout: 10 * time.Second},
+		mustGetEnv("SUBSCRIPTION_URL"),
+		mustGetEnv("API_SHARED_SECRET"),
+	)
+	if err := run(ctx, subscriptionService); err != nil {
+		slog.Error("worker failed", "service", serviceName, "error", err)
 		os.Exit(1)
 	}
+}
+
+func mustGetEnv(key string) string {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		slog.Error("missing environment variable", "key", key)
+		os.Exit(1)
+	}
+	return value
 }

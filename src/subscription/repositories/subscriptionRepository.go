@@ -13,10 +13,43 @@ import (
 
 type SubscriptionRepository interface {
 	GetForUser(ctx context.Context, ownerUserID string, activeOnly bool) ([]models.Subscription, error)
+	GetActive(ctx context.Context) ([]models.Subscription, error)
 	GetByID(ctx context.Context, id int) (*models.Subscription, error)
 	Create(ctx context.Context, ownerUserID string, input models.CreateSubscriptionInput) (*models.Subscription, error)
 	Update(ctx context.Context, id int, input models.UpdateSubscriptionInput) (*models.Subscription, error)
 	Deactivate(ctx context.Context, id int) error
+}
+
+func (r *SubscriptionRepositoryPG) GetActive(ctx context.Context) ([]models.Subscription, error) {
+	rows, err := r.db.Query(ctx, `
+		select id, owner_user_id, rule_text, version_id, is_active, created_at, updated_at
+		from subscriptions
+		where is_active
+		order by id`)
+	if err != nil {
+		slog.Error("failed to query active subscriptions", "error", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := make([]models.Subscription, 0)
+	for rows.Next() {
+		var subscription models.Subscription
+		if err = rows.Scan(
+			&subscription.ID,
+			&subscription.OwnerUserID,
+			&subscription.RuleText,
+			&subscription.VersionID,
+			&subscription.IsActive,
+			&subscription.CreatedAt,
+			&subscription.UpdatedAt,
+		); err != nil {
+			slog.Error("failed to scan active subscription row", "error", err)
+			return nil, err
+		}
+		results = append(results, subscription)
+	}
+	return results, rows.Err()
 }
 
 func (r *SubscriptionRepositoryPG) GetByID(ctx context.Context, id int) (*models.Subscription, error) {

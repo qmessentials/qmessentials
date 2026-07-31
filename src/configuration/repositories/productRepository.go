@@ -11,6 +11,49 @@ import (
 
 type ProductRepository interface {
 	GetByPartNumber(ctx context.Context, partNumber string) (*models.Product, error)
+	GetMetadataByPartNumber(ctx context.Context, partNumber string) (*models.ProductMetadata, error)
+}
+
+func (r *ProductRepositoryPG) GetMetadataByPartNumber(ctx context.Context, partNumber string) (*models.ProductMetadata, error) {
+	row := r.db.QueryRowContext(ctx, `
+		select id, part_number, metadata_type, metadata_selector
+		from products
+		where part_number = $1`, partNumber)
+
+	var productID int
+	var metadata models.ProductMetadata
+	if err := row.Scan(
+		&productID,
+		&metadata.PartNumber,
+		&metadata.MetadataType,
+		&metadata.MetadataSelector,
+	); err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		select metadata_key, value_type
+		from product_metadata_definitions
+		where product_id = $1
+		  and is_active
+		order by metadata_key`, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	metadata.Definitions = make([]models.ProductMetadataDefinition, 0)
+	for rows.Next() {
+		var definition models.ProductMetadataDefinition
+		if err = rows.Scan(&definition.MetadataKey, &definition.ValueType); err != nil {
+			return nil, err
+		}
+		metadata.Definitions = append(metadata.Definitions, definition)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return &metadata, nil
 }
 
 type ProductRepositoryPG struct {

@@ -1,62 +1,44 @@
 package main
 
 import (
-	"bytes"
-	"net/http"
-	"net/http/httptest"
-	"strings"
+	"context"
+	"errors"
 	"testing"
+	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/qmessentials/qmessentials/calculation-broker/models"
 )
 
-func TestHealth(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	request := httptest.NewRequest(http.MethodGet, "/health", nil)
-	response := httptest.NewRecorder()
+type subscriptionServiceStub struct {
+	subscriptions []models.Subscription
+	err           error
+}
 
-	setupRouter().ServeHTTP(response, request)
+func (s subscriptionServiceStub) GetActive(context.Context) ([]models.Subscription, error) {
+	return s.subscriptions, s.err
+}
 
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
-	}
-	if !strings.Contains(response.Body.String(), `"status":"UP"`) {
-		t.Fatalf("expected UP response, got %s", response.Body.String())
+func TestRunStopsWhenContextIsCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+
+	go func() {
+		_ = run(ctx, subscriptionServiceStub{})
+		close(stopped)
+	}()
+	cancel()
+
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("worker did not stop after context cancellation")
 	}
 }
 
-func TestSubscriptionEvent(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/subscriptions/events",
-		bytes.NewBufferString(
-			`{"subscriptionId":"sub-123","revision":1,"action":"updated"}`,
-		),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-
-	setupRouter().ServeHTTP(response, request)
-
-	if response.Code != http.StatusAccepted {
-		t.Fatalf("expected status %d, got %d", http.StatusAccepted, response.Code)
-	}
-}
-
-func TestSubscriptionEventRejectsInvalidPayload(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/subscriptions/events",
-		bytes.NewBufferString(`{"subscriptionId":"sub-123"}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-
-	setupRouter().ServeHTTP(response, request)
-
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, response.Code)
+func TestRunReturnsSubscriptionLoadError(t *testing.T) {
+	expected := errors.New("subscription service unavailable")
+	err := run(context.Background(), subscriptionServiceStub{err: expected})
+	if !errors.Is(err, expected) {
+		t.Fatalf("expected %v, got %v", expected, err)
 	}
 }

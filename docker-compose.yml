@@ -104,6 +104,7 @@ services:
       DB_NAME: "${INTAKE_DB_NAME:-qmessentials}"
       DB_USER: "${INTAKE_DB_USER:-postgres}"
       DB_PASSWORD: "${INTAKE_DB_PASSWORD:-postgres}"
+      CONFIG_URL: "http://configuration:8081"
       NATS_URL: "${NATS_URL:-nats://nats:4222}"
     depends_on:
       postgres:
@@ -112,6 +113,8 @@ services:
         condition: service_completed_successfully
       nats-setup:
         condition: service_completed_successfully
+      configuration:
+        condition: service_healthy
     networks:
       - qmessentials-network
     healthcheck:
@@ -204,11 +207,9 @@ services:
     build:
       context: ./src/calculation-broker
       dockerfile: Dockerfile
-    ports:
-      - "8084:8084"
     environment:
-      PORT: "8084"
       SUBSCRIPTION_URL: "http://subscription:8083"
+      API_SHARED_SECRET: "${API_SHARED_SECRET:-your-shared-secret-change-me}"
       NATS_URL: "${NATS_URL:-nats://nats:4222}"
     depends_on:
       subscription:
@@ -217,19 +218,6 @@ services:
         condition: service_completed_successfully
     networks:
       - qmessentials-network
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:8084/health",
-        ]
-      interval: 30s
-      timeout: 3s
-      retries: 3
 
   calculation-engine:
     build:
@@ -250,7 +238,7 @@ services:
       nats-setup:
         condition: service_completed_successfully
       calculation-broker:
-        condition: service_healthy
+        condition: service_started
     networks:
       - qmessentials-network
 

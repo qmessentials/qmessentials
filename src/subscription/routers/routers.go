@@ -22,8 +22,19 @@ func Setup(subscriptionRepo repositories.SubscriptionRepository, apiSharedSecret
 		c.JSON(http.StatusOK, gin.H{"service": "subscription", "status": "UP"})
 	})
 
-	authorized := r.Group("/")
-	authorized.Use(middleware.SharedSecret(apiSharedSecret))
+	internal := r.Group("/")
+	internal.Use(middleware.SharedSecret(apiSharedSecret))
+	internal.GET("/subscriptions/active", func(c *gin.Context) {
+		subscriptions, err := subscriptionRepo.GetActive(c.Request.Context())
+		if err != nil {
+			_ = c.Error(err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch active subscriptions"})
+			return
+		}
+		c.JSON(http.StatusOK, subscriptions)
+	})
+
+	authorized := internal.Group("/")
 	authorized.Use(middleware.AuthenticatedUser())
 	authorized.GET("/subscriptions", func(c *gin.Context) {
 		activeOnly := true
