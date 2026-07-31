@@ -35,6 +35,11 @@ services:
       INTAKE_DB_NAME: "${INTAKE_DB_NAME:-qmessentials}"
       INTAKE_DB_USER: "${INTAKE_DB_USER:-postgres}"
       INTAKE_DB_PASSWORD: "${INTAKE_DB_PASSWORD:-postgres}"
+      SUBSCRIPTION_DB_HOST: "${SUBSCRIPTION_DB_HOST:-postgres}"
+      SUBSCRIPTION_DB_PORT: "${SUBSCRIPTION_DB_PORT:-5432}"
+      SUBSCRIPTION_DB_NAME: "${SUBSCRIPTION_DB_NAME:-qmessentials}"
+      SUBSCRIPTION_DB_USER: "${SUBSCRIPTION_DB_USER:-postgres}"
+      SUBSCRIPTION_DB_PASSWORD: "${SUBSCRIPTION_DB_PASSWORD:-postgres}"
     depends_on:
       postgres:
         condition: service_healthy
