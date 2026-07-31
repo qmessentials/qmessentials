@@ -12,8 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TestingSamplesRouteImport } from './routes/testing/samples'
+import { Route as MonitoringSubscriptionsRouteImport } from './routes/monitoring/subscriptions'
 import { Route as TestingSamplesIndexRouteImport } from './routes/testing/samples.index'
+import { Route as MonitoringSubscriptionsIndexRouteImport } from './routes/monitoring/subscriptions.index'
+import { Route as MonitoringSubscriptionsNewRouteImport } from './routes/monitoring/subscriptions.new'
 import { Route as TestingSamplesSerialNumberEditRouteImport } from './routes/testing/samples.$serialNumber.edit'
+import { Route as MonitoringSubscriptionsSubscriptionIdEditRouteImport } from './routes/monitoring/subscriptions.$subscriptionId.edit'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -30,37 +34,71 @@ const TestingSamplesRoute = TestingSamplesRouteImport.update({
   path: '/testing/samples',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MonitoringSubscriptionsRoute = MonitoringSubscriptionsRouteImport.update({
+  id: '/monitoring/subscriptions',
+  path: '/monitoring/subscriptions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TestingSamplesIndexRoute = TestingSamplesIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => TestingSamplesRoute,
 } as any)
+const MonitoringSubscriptionsIndexRoute =
+  MonitoringSubscriptionsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => MonitoringSubscriptionsRoute,
+  } as any)
+const MonitoringSubscriptionsNewRoute =
+  MonitoringSubscriptionsNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => MonitoringSubscriptionsRoute,
+  } as any)
 const TestingSamplesSerialNumberEditRoute =
   TestingSamplesSerialNumberEditRouteImport.update({
     id: '/$serialNumber/edit',
     path: '/$serialNumber/edit',
     getParentRoute: () => TestingSamplesRoute,
   } as any)
+const MonitoringSubscriptionsSubscriptionIdEditRoute =
+  MonitoringSubscriptionsSubscriptionIdEditRouteImport.update({
+    id: '/$subscriptionId/edit',
+    path: '/$subscriptionId/edit',
+    getParentRoute: () => MonitoringSubscriptionsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/monitoring/subscriptions': typeof MonitoringSubscriptionsRouteWithChildren
   '/testing/samples': typeof TestingSamplesRouteWithChildren
+  '/monitoring/subscriptions/new': typeof MonitoringSubscriptionsNewRoute
+  '/monitoring/subscriptions/': typeof MonitoringSubscriptionsIndexRoute
   '/testing/samples/': typeof TestingSamplesIndexRoute
+  '/monitoring/subscriptions/$subscriptionId/edit': typeof MonitoringSubscriptionsSubscriptionIdEditRoute
   '/testing/samples/$serialNumber/edit': typeof TestingSamplesSerialNumberEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/monitoring/subscriptions/new': typeof MonitoringSubscriptionsNewRoute
+  '/monitoring/subscriptions': typeof MonitoringSubscriptionsIndexRoute
   '/testing/samples': typeof TestingSamplesIndexRoute
+  '/monitoring/subscriptions/$subscriptionId/edit': typeof MonitoringSubscriptionsSubscriptionIdEditRoute
   '/testing/samples/$serialNumber/edit': typeof TestingSamplesSerialNumberEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/monitoring/subscriptions': typeof MonitoringSubscriptionsRouteWithChildren
   '/testing/samples': typeof TestingSamplesRouteWithChildren
+  '/monitoring/subscriptions/new': typeof MonitoringSubscriptionsNewRoute
+  '/monitoring/subscriptions/': typeof MonitoringSubscriptionsIndexRoute
   '/testing/samples/': typeof TestingSamplesIndexRoute
+  '/monitoring/subscriptions/$subscriptionId/edit': typeof MonitoringSubscriptionsSubscriptionIdEditRoute
   '/testing/samples/$serialNumber/edit': typeof TestingSamplesSerialNumberEditRoute
 }
 export interface FileRouteTypes {
@@ -68,27 +106,39 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/monitoring/subscriptions'
     | '/testing/samples'
+    | '/monitoring/subscriptions/new'
+    | '/monitoring/subscriptions/'
     | '/testing/samples/'
+    | '/monitoring/subscriptions/$subscriptionId/edit'
     | '/testing/samples/$serialNumber/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
+    | '/monitoring/subscriptions/new'
+    | '/monitoring/subscriptions'
     | '/testing/samples'
+    | '/monitoring/subscriptions/$subscriptionId/edit'
     | '/testing/samples/$serialNumber/edit'
   id:
     | '__root__'
     | '/'
     | '/login'
+    | '/monitoring/subscriptions'
     | '/testing/samples'
+    | '/monitoring/subscriptions/new'
+    | '/monitoring/subscriptions/'
     | '/testing/samples/'
+    | '/monitoring/subscriptions/$subscriptionId/edit'
     | '/testing/samples/$serialNumber/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  MonitoringSubscriptionsRoute: typeof MonitoringSubscriptionsRouteWithChildren
   TestingSamplesRoute: typeof TestingSamplesRouteWithChildren
 }
 
@@ -115,12 +165,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TestingSamplesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/monitoring/subscriptions': {
+      id: '/monitoring/subscriptions'
+      path: '/monitoring/subscriptions'
+      fullPath: '/monitoring/subscriptions'
+      preLoaderRoute: typeof MonitoringSubscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/testing/samples/': {
       id: '/testing/samples/'
       path: '/'
       fullPath: '/testing/samples/'
       preLoaderRoute: typeof TestingSamplesIndexRouteImport
       parentRoute: typeof TestingSamplesRoute
+    }
+    '/monitoring/subscriptions/': {
+      id: '/monitoring/subscriptions/'
+      path: '/'
+      fullPath: '/monitoring/subscriptions/'
+      preLoaderRoute: typeof MonitoringSubscriptionsIndexRouteImport
+      parentRoute: typeof MonitoringSubscriptionsRoute
+    }
+    '/monitoring/subscriptions/new': {
+      id: '/monitoring/subscriptions/new'
+      path: '/new'
+      fullPath: '/monitoring/subscriptions/new'
+      preLoaderRoute: typeof MonitoringSubscriptionsNewRouteImport
+      parentRoute: typeof MonitoringSubscriptionsRoute
     }
     '/testing/samples/$serialNumber/edit': {
       id: '/testing/samples/$serialNumber/edit'
@@ -129,8 +200,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TestingSamplesSerialNumberEditRouteImport
       parentRoute: typeof TestingSamplesRoute
     }
+    '/monitoring/subscriptions/$subscriptionId/edit': {
+      id: '/monitoring/subscriptions/$subscriptionId/edit'
+      path: '/$subscriptionId/edit'
+      fullPath: '/monitoring/subscriptions/$subscriptionId/edit'
+      preLoaderRoute: typeof MonitoringSubscriptionsSubscriptionIdEditRouteImport
+      parentRoute: typeof MonitoringSubscriptionsRoute
+    }
   }
 }
+
+interface MonitoringSubscriptionsRouteChildren {
+  MonitoringSubscriptionsNewRoute: typeof MonitoringSubscriptionsNewRoute
+  MonitoringSubscriptionsIndexRoute: typeof MonitoringSubscriptionsIndexRoute
+  MonitoringSubscriptionsSubscriptionIdEditRoute: typeof MonitoringSubscriptionsSubscriptionIdEditRoute
+}
+
+const MonitoringSubscriptionsRouteChildren: MonitoringSubscriptionsRouteChildren =
+  {
+    MonitoringSubscriptionsNewRoute: MonitoringSubscriptionsNewRoute,
+    MonitoringSubscriptionsIndexRoute: MonitoringSubscriptionsIndexRoute,
+    MonitoringSubscriptionsSubscriptionIdEditRoute:
+      MonitoringSubscriptionsSubscriptionIdEditRoute,
+  }
+
+const MonitoringSubscriptionsRouteWithChildren =
+  MonitoringSubscriptionsRoute._addFileChildren(
+    MonitoringSubscriptionsRouteChildren,
+  )
 
 interface TestingSamplesRouteChildren {
   TestingSamplesIndexRoute: typeof TestingSamplesIndexRoute
@@ -149,6 +246,7 @@ const TestingSamplesRouteWithChildren = TestingSamplesRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  MonitoringSubscriptionsRoute: MonitoringSubscriptionsRouteWithChildren,
   TestingSamplesRoute: TestingSamplesRouteWithChildren,
 }
 export const routeTree = rootRouteImport

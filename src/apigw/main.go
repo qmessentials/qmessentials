@@ -55,6 +55,15 @@ func setupRouter() *gin.Engine {
 		slog.Error("Invalid CONFIG_URL", "url", configUrlStr, "error", err)
 		os.Exit(1)
 	}
+	subscriptionUrlStr, ok := os.LookupEnv("SUBSCRIPTION_URL")
+	if !ok {
+		subscriptionUrlStr = "/subscription"
+	}
+	subscriptionUrl, err := url.Parse(subscriptionUrlStr)
+	if err != nil {
+		slog.Error("Invalid SUBSCRIPTION_URL", "url", subscriptionUrlStr, "error", err)
+		os.Exit(1)
+	}
 	apiSharedSecret, ok := os.LookupEnv("API_SHARED_SECRET")
 	if !ok {
 		slog.Error("API_SHARED_SECRET must be set")
@@ -75,6 +84,9 @@ func setupRouter() *gin.Engine {
 	})
 	r.Any("/api/config/*proxyPath", func(c *gin.Context) {
 		proxyRequest(c, apiSharedSecret, configUrl)
+	})
+	r.Any("/api/subscription/*proxyPath", func(c *gin.Context) {
+		proxyRequest(c, apiSharedSecret, subscriptionUrl)
 	})
 	return r
 }
