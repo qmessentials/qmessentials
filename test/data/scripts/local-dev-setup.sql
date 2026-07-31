@@ -7,13 +7,13 @@ values ('KE-TST-TC00001', 'Toaster Case 1'),
 -- Toaster Component Test Configurations — Demo / Testing Data
 -- Products: Toaster Case, Heating Element, Spring Lift
 -- =============================================================================
--- All product and test lookups are done by name; no hardcoded IDs.
+-- All product and test lookups use domain keys; no hardcoded IDs.
 --
 -- Each product_test_configurations INSERT uses INSERT ... SELECT with a CTE
--- that resolves part_number -> product_id and test_name -> test_id.
+-- that resolves part_number -> product_id and canonical_test_name -> test_id.
 --
 -- Each modifier combination INSERT resolves the parent configuration by joining
--- product_test_configurations back through products and tests by name.
+-- product_test_configurations back through product and canonical test keys.
 -- =============================================================================
 
 
@@ -29,7 +29,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'width'
+    where canonical_test_name = 'width'
 )
 
 insert into product_test_configurations
@@ -56,7 +56,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'height'
+    where canonical_test_name = 'height'
 )
 
 insert into product_test_configurations
@@ -83,7 +83,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'thickness'
+    where canonical_test_name = 'thickness'
 )
 
 insert into product_test_configurations
@@ -110,7 +110,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'gross weight'
+    where canonical_test_name = 'gross_weight'
 )
 
 insert into product_test_configurations
@@ -137,7 +137,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'surface roughness ra'
+    where canonical_test_name = 'surface_roughness_ra'
 )
 
 insert into product_test_configurations
@@ -164,7 +164,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'deflection'
+    where canonical_test_name = 'deflection'
 )
 
 insert into product_test_configurations
@@ -191,7 +191,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'operating temperature'
+    where canonical_test_name = 'operating_temperature'
 )
 
 insert into product_test_configurations
@@ -218,7 +218,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'insertion force'
+    where canonical_test_name = 'insertion_force'
 )
 
 insert into product_test_configurations
@@ -249,7 +249,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'length'
+    where canonical_test_name = 'length'
 )
 
 insert into product_test_configurations
@@ -276,7 +276,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'diameter'
+    where canonical_test_name = 'diameter'
 )
 
 insert into product_test_configurations
@@ -303,7 +303,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'mass variance'
+    where canonical_test_name = 'mass_variance'
 )
 
 insert into product_test_configurations
@@ -330,7 +330,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'tensile strength'
+    where canonical_test_name = 'tensile_strength'
 )
 
 insert into product_test_configurations
@@ -357,7 +357,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'power consumption'
+    where canonical_test_name = 'power_consumption'
 )
 
 insert into product_test_configurations
@@ -384,7 +384,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'operating temperature'
+    where canonical_test_name = 'operating_temperature'
 )
 
 insert into product_test_configurations
@@ -415,7 +415,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'length'
+    where canonical_test_name = 'length'
 )
 
 insert into product_test_configurations
@@ -442,7 +442,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'travel distance'
+    where canonical_test_name = 'travel_distance'
 )
 
 insert into product_test_configurations
@@ -469,7 +469,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'insertion force'
+    where canonical_test_name = 'insertion_force'
 )
 
 insert into product_test_configurations
@@ -496,7 +496,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'extraction force'
+    where canonical_test_name = 'extraction_force'
 )
 
 insert into product_test_configurations
@@ -523,7 +523,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'deflection'
+    where canonical_test_name = 'deflection'
 )
 
 insert into product_test_configurations
@@ -550,7 +550,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'fastener torque'
+    where canonical_test_name = 'fastener_torque'
 )
 
 insert into product_test_configurations
@@ -577,7 +577,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'cycle time'
+    where canonical_test_name = 'cycle_time'
 )
 
 insert into product_test_configurations
@@ -604,7 +604,7 @@ with p as (
 
 t as (
     select id from tests
-    where test_name = 'gross weight'
+    where canonical_test_name = 'gross_weight'
 )
 
 insert into product_test_configurations

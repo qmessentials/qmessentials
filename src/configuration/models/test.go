@@ -5,6 +5,7 @@ import "time"
 type Test struct {
 	ID                      int       `json:"id"`
 	TestName                string    `json:"testName"`
+	CanonicalTestName       string    `json:"canonicalTestName"`
 	TestUnitCategory        string    `json:"testUnitCategory"`
 	DocumentationReferences []string  `json:"documentationReferences"`
 	AreModifiersAllowed     bool      `json:"areModifiersAllowed"`

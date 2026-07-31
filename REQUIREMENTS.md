@@ -79,18 +79,19 @@ or an existing expression language.
 
 A test result will be uniquely identified by the combination of:
 
-- Sample ID
+- Sample serial number
 - Part number
-- Product test sequence number
+- Canonical test name
 - Modifier or modifiers
 
-For a product, each product test sequence number maps to one test name.
+Product-test sequence remains presentation and execution order; it is not part
+of test-result identity. Each test has a stable canonical name distinct from
+its user-facing display name.
 
 When evaluating a result against a subscription, the system will:
 
-1. Use the result's part number and product test sequence number to resolve the
-   test name.
-2. Match the resolved test name against the subscription's test-name pattern,
+1. Read the canonical test name directly from the result.
+2. Match the canonical test name against the subscription's test-name pattern,
    including wildcard support.
 3. Include the result when the subscription has no modifier constraint, or
    when the result's modifiers match the subscription's modifier constraint.

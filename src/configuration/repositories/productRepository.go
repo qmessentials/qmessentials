@@ -118,7 +118,7 @@ func (r *ProductRepositoryPG) getProductTestConfigurations(ctx context.Context, 
 }
 
 func (r *ProductRepositoryPG) getTests(ctx context.Context, testIds []int) ([]models.Test, error) {
-	rows, err := r.db.QueryContext(ctx, "select id, test_name, test_unit_category, coalesce(documentation_references, '{}'::text[]) as documentation_references, are_modifiers_allowed, is_active, created_at, updated_at from tests where id = any($1)", testIds)
+	rows, err := r.db.QueryContext(ctx, "select id, test_name, canonical_test_name, test_unit_category, coalesce(documentation_references, '{}'::text[]) as documentation_references, are_modifiers_allowed, is_active, created_at, updated_at from tests where id = any($1)", testIds)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (r *ProductRepositoryPG) getTests(ctx context.Context, testIds []int) ([]mo
 	var tests []models.Test
 	for rows.Next() {
 		var test models.Test
-		err = rows.Scan(&test.ID, &test.TestName, &test.TestUnitCategory, r.typeMap.SQLScanner(&test.DocumentationReferences), &test.AreModifiersAllowed, &test.IsActive, &test.CreatedAt, &test.UpdatedAt)
+		err = rows.Scan(&test.ID, &test.TestName, &test.CanonicalTestName, &test.TestUnitCategory, r.typeMap.SQLScanner(&test.DocumentationReferences), &test.AreModifiersAllowed, &test.IsActive, &test.CreatedAt, &test.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}

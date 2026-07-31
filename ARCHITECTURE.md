@@ -60,9 +60,9 @@ Test-result subscriptions operate over three domain layers plus a time window:
 1. **Part number and sample metadata — where and what:** A serial number maps a
    sample to a product and can encode manufacturing attributes such as plant,
    line, and date.
-2. **Test details — context:** A result is identified by sample, part number,
-   product test sequence, and optional modifiers. The product and sequence
-   resolve to a canonical test name.
+2. **Test details — context:** A result is identified by sample serial number,
+   part number, canonical test name, and optional modifiers. Product-test
+   sequence remains presentation and execution order rather than identity.
 3. **Result characteristics — trigger:** A subscription can select all
    results, configured out-of-specification results, or statistical anomalies.
 4. **Statistical window — time:** Stateful calculations operate over a
