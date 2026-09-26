@@ -12,9 +12,10 @@ task:
 - `docs/work-tracker-inbox.md` contains unprioritized follow-up work and open
   questions; it is not an implementation specification.
 
-Treat code, tests, migrations, and deployment configuration as the source of
-truth for implementation status. Do not infer that a capability exists merely
-because the product or architecture documentation describes it.
+Unless a document explicitly says otherwise, project documentation describes
+the desired future state. Treat code, tests, migrations, and deployment
+configuration as the source of truth for implementation status. Do not infer
+that a capability exists merely because documentation describes it.
 
 ## Repository boundaries
 

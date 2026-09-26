@@ -159,7 +159,7 @@ func getUserNameFromToken(token string) (string, error) {
 }
 
 func getUser(userName string) (*UserInfo, error) {
-	//TODO: get this from a database
+	// TODO: get this from a database
 	if userName == "temp-user" {
 		return &UserInfo{
 			ID:    1,
