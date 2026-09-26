@@ -8,21 +8,34 @@ Move an item to the external work tracker when it can be prioritized, then
 remove it here or replace it with a tracker reference. Accepted architectural
 decisions belong in `docs/architecture`.
 
-## Product discovery
+## Potential customer-specific enhancements
 
-- Validate target manufacturing segments, regulatory environments, and roles.
-- Decide whether QMEssentials supplements or replaces QMS, ERP, or MES tools.
-- Define a complete sample and its lifecycle transitions.
-- Define review, correction, voiding, audit history, retention, and signatures.
-- Select result types beyond numeric measurements.
-- Decide whether deployments are single-tenant or multi-tenant.
-- Establish measurable outcomes for a first production-ready release.
+- Assess workflow, record, and reporting enhancements for a specific compliance
+  regimen when a customer need justifies them.
+- Assess a blockchain-backed event-integrity mechanism in place of HMAC when a
+  customer requires irrefutable history.
+- Assess in-application result-history retention policies when a customer
+  requires them.
 
-## Serial-number metadata
+## Possible future directions
 
-- Decide the scope that owns a parsing scheme.
-- Define behavior for an unparseable serial number.
-- Decide whether regular expressions suffice or sandboxed scripting is needed.
+- Build and maintain customer-specific integrations with QMS, ERP, and MES
+  systems.
+- Support QMS result exchange, including ingesting exported readings and
+  publishing readings to systems that can import them.
+- Assess custom ODBC adapters for IBM i (AS/400) systems with the required
+  middleware; consider native Java-based tooling running on IBM i later.
+
+## Application configuration
+
+- Decide how installation-specific configuration is isolated and applied,
+  including whether it uses forks or another deployment-specific mechanism.
+
+## Asynchronous intake feedback
+
+- Design rejected-result feedback for browser producers and programmatic
+  producers. Browser input may use a BFF WebSocket hub; programmatic producers
+  need a monitorable outcome queue.
 
 ## Subscription rules and user experience
 
@@ -46,4 +59,3 @@ decisions belong in `docs/architecture`.
 - Define sample-size, variance, and update-order semantics.
 - Design atomic, idempotent state updates.
 - Decide the persistence policy for rebuildable calculation state.
-- Define replay, reconciliation, and handling of late, corrected, and voided results.

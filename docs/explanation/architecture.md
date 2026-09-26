@@ -65,6 +65,10 @@ Calculation engines consume routed readings,
 update statistical state atomically, and emit match events.
 Subscription management coordinates notification delivery from those events.
 
+When a result is voided, Intake publishes a `sample-history-invalidated` event
+to NATS with the sample identity. Consumers reload the authoritative sample
+history and rebuild affected derived state.
+
 Messages have stable identities,
 and consumers are idempotent because JetStream delivery can be repeated.
 Rebuildable processing state
