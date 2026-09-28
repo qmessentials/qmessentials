@@ -2,31 +2,18 @@ package messaging
 
 import (
 	"context"
-	"fmt"
+	"errors"
 )
 
-type UnmarshalError struct {
-	err error
+var UnmarshalError = errors.New("failed to unmarshal test result")
+var DatabaseError = errors.New("failed to save test result")
+
+func NewUnmarshalError(err error) error {
+	return errors.Join(UnmarshalError, err)
 }
 
-func NewUnmarshalError(err error) *UnmarshalError {
-	return &UnmarshalError{err}
-}
-
-func (e *UnmarshalError) Error() string {
-	return fmt.Sprintf("failed to unmarshal test result: %s", e.err)
-}
-
-type DatabaseError struct {
-	err error
-}
-
-func NewDatabaseError(err error) *DatabaseError {
-	return &DatabaseError{err}
-}
-
-func (e *DatabaseError) Error() string {
-	return fmt.Sprintf("failed to save test result: %s", e.err)
+func NewDatabaseError(err error) error {
+	return errors.Join(DatabaseError, err)
 }
 
 type Publisher interface {

@@ -75,7 +75,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	r := routers.Setup(sampleRepo, publisher)
+	r := routers.Setup(sampleRepo, testResultRepo, publisher)
 
 	slog.Info("starting server", "port", port)
 	if err = r.Run(":" + port); err != nil {

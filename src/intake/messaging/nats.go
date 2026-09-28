@@ -61,9 +61,9 @@ func (s *NatsSubscriber) Subscribe(ctx context.Context, stream string, subject s
 			}
 			if err = handler(ctx, msg.Data()); err != nil {
 				slog.Error("message handler error", "error", err)
-				if errors.As(err, &UnmarshalError{}) {
+				if errors.Is(err, UnmarshalError) {
 					msg.Term()
-				} else if errors.As(err, &DatabaseError{}) {
+				} else if errors.Is(err, DatabaseError) {
 					msg.Nak()
 				} else {
 					slog.Error("unknown error", "error", err)
