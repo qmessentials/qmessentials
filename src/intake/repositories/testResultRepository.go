@@ -2,13 +2,17 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qmessentials/qmessentials/intake/models"
 )
+
+var ErrSampleNotTesting = errors.New("sample is not available for testing")
 
 type TestResultRepository interface {
 	Add(ctx context.Context, item *models.TestResult) (uuid.UUID, error)
@@ -56,7 +60,23 @@ func (r *TestResultRepositoryPG) GetOne(ctx context.Context, id uuid.UUID) (*mod
 
 func (r *TestResultRepositoryPG) Add(ctx context.Context, item *models.TestResult) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := r.db.QueryRow(ctx,
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+	var status string
+	err = tx.QueryRow(ctx, `select status from samples where serial_number = $1 for share`, item.SerialNumber).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrSampleNotFound
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if status != "TESTING" {
+		return uuid.Nil, ErrSampleNotTesting
+	}
+	err = tx.QueryRow(ctx,
 		`insert into test_results
 		(serial_number, part_number, canonical_test_name, modifiers, test_result, unit, decimal_places, min_value, max_value, hash_value)
 		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -74,6 +94,9 @@ func (r *TestResultRepositoryPG) Add(ctx context.Context, item *models.TestResul
 	).Scan(&id)
 	if err != nil {
 		slog.Error("failed to insert test result", "error", err)
+		return uuid.Nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
 		return uuid.Nil, err
 	}
 	return id, nil

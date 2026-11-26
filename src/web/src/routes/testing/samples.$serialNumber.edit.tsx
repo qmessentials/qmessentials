@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { testResultMutations } from "@/lib/intake/mutations.ts";
+import { sampleMutations, testResultMutations } from "@/lib/intake/mutations.ts";
 import { sampleQueries } from "@/lib/intake/queries.ts";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -31,7 +31,15 @@ function EditSample() {
   });
   const [status, setStatus] = useState<string | null>(sample?.status ?? null);
   const queryClient = useQueryClient();
-  const { mutate: submitTestResult } = useMutation({
+  const changeStatus = useMutation({
+    ...sampleMutations.changeStatus(),
+    onSuccess: updated => {
+      queryClient.setQueryData(sampleQueries.sample(serialNumber).queryKey, (old: Sample | undefined) => old && {...old, status: updated.status})
+      queryClient.invalidateQueries({queryKey: sampleQueries.all().queryKey})
+      setStatus(null)
+    },
+  });
+  const { mutate: submitTestResult, error: submitError } = useMutation({
     ...testResultMutations.submit(),
     onSuccess: (_, variables) => {
       queryClient.setQueryData<Sample>(
@@ -121,7 +129,7 @@ function EditSample() {
         Edit Sample: {serialNumber}
       </h1>
       <div className="bg-white dark:bg-gray-800 rounded-md p-8 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={e => { e.preventDefault(); if (status && status !== sample?.status) changeStatus.mutate({serialNumber, status}) }}>
           <FieldGroup className="grid  grid-cols-2">
             <Field>
               <FieldLabel htmlFor="partNumber">Part #</FieldLabel>
@@ -138,22 +146,26 @@ function EditSample() {
                 id="status"
                 value={status ?? sample?.status ?? ""}
                 onValueChange={setStatus}
+                disabled={sample?.status === "ARCHIVED" || sample?.status === "INVALIDATED"}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TESTING">TESTING</SelectItem>
-                  <SelectItem value="COMPLETED">COMPLETED</SelectItem>
-                  <SelectItem value="INVALIDATED">INVALIDATED</SelectItem>
-                  <SelectItem value="ARCHIVED">ARCHIVED</SelectItem>
+                  {sample && <SelectItem value={sample.status}>{sample.status}</SelectItem>}
+                  {sample?.status === "TESTING" && <SelectItem value="COMPLETED">COMPLETED</SelectItem>}
+                  {sample?.status === "COMPLETED" && <SelectItem value="TESTING">TESTING</SelectItem>}
+                  {sample?.status === "COMPLETED" && <SelectItem value="ARCHIVED">ARCHIVED</SelectItem>}
                 </SelectContent>
               </Select>
             </Field>
           </FieldGroup>
+          {(sample?.status === "TESTING" || sample?.status === "COMPLETED") && <Button type="submit" disabled={!status || status === sample?.status || changeStatus.isPending}>Update status</Button>}
+          {changeStatus.error && <p role="alert" className="text-red-600">{changeStatus.error.message}</p>}
         </form>
       </div>
       <div className="mt-8 space-y-4">
+        {submitError && <p role="alert" className="text-red-600">{submitError.message}</p>}
         {mergedTests.map((test) => (
           <div
             key={test.productTestSequence}
@@ -206,7 +218,7 @@ function EditSample() {
                       : "1"
                   }
                   className="h-9 w-full"
-                  disabled={test.testResult ? true : false}
+                  disabled={sample?.status !== "TESTING" || test.testResult !== null}
                 />
               </div>
               <div className="md:col-span-2">
@@ -218,7 +230,7 @@ function EditSample() {
                 type="submit"
                 size="sm"
                 className="w-full md:w-auto md:col-span-2 md:justify-self-end"
-                disabled={test.testResult ? true : false}
+                disabled={sample?.status !== "TESTING" || test.testResult !== null}
               >
                 Submit
               </Button>

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -14,6 +15,8 @@ import (
 type ConfigurationService interface {
 	GetProductMetadata(ctx context.Context, partNumber string) (*models.ProductMetadata, error)
 }
+
+var ErrProductNotFound = errors.New("product not found")
 
 type ConfigurationServiceHTTP struct {
 	client          *http.Client
@@ -42,6 +45,9 @@ func (s *ConfigurationServiceHTTP) GetProductMetadata(ctx context.Context, partN
 		return nil, fmt.Errorf("get product metadata: %w", err)
 	}
 	defer response.Body.Close()
+	if response.StatusCode == http.StatusNotFound {
+		return nil, ErrProductNotFound
+	}
 
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("get product metadata: unexpected status %s", response.Status)

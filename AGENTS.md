@@ -42,6 +42,10 @@ that a capability exists merely because documentation describes it.
 - The browser communicates with backend services through `src/apigw`.
 - Configuration, intake, and subscription services own separate PostgreSQL
   schemas and migration streams. Do not introduce cross-schema access.
+- Ask the user before making any DDL change, including changes to tables,
+  constraints, indexes, functions, triggers, or other schema objects. Present
+  the proposed change and its reason before editing migration files or issuing
+  DDL against a database.
 - Add schema changes as new, ordered SQL files under the owning service's
   directory in `src/db-migrations`; do not edit an applied migration casually.
 - Keep changes scoped to the requested work and preserve unrelated working-tree

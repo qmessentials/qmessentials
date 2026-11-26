@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -75,7 +76,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	r := routers.Setup(sampleRepo, testResultRepo, publisher)
+	configService := services.NewConfigurationServiceHTTP(http.DefaultClient, mustGetEnv("CONFIG_URL"), mustGetEnv("API_SHARED_SECRET"))
+	r := routers.Setup(sampleRepo, testResultRepo, publisher, configService)
 
 	slog.Info("starting server", "port", port)
 	if err = r.Run(":" + port); err != nil {

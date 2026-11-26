@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -110,6 +111,7 @@ func proxyRequest(c *gin.Context, apiSharedSecret string, apiUrl *url.URL) {
 			req.Out.URL.RawQuery = c.Request.URL.RawQuery
 			req.Out.Header.Set("X-Internal-Token", apiSharedSecret)
 			req.Out.Header.Set("X-User-Id", user.Name)
+			req.Out.Header.Set("X-User-Roles", strings.Join(user.Roles, ","))
 		},
 	}
 	proxy.ServeHTTP(c.Writer, c.Request)
@@ -164,7 +166,7 @@ func getUser(userName string) (*UserInfo, error) {
 		return &UserInfo{
 			ID:    1,
 			Name:  userName,
-			Roles: []string{"temp-role"},
+			Roles: []string{"Technician", "Quality Manager"},
 		}, nil
 	}
 	return nil, errors.New("user not found")
