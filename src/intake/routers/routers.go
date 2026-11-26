@@ -2,17 +2,19 @@
 package routers
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/qmessentials/qmessentials/intake/messaging"
 	"github.com/qmessentials/qmessentials/intake/middleware"
 	"github.com/qmessentials/qmessentials/intake/repositories"
 )
 
-func Setup(sampleRepo repositories.SampleRepository, publisher messaging.Publisher) *gin.Engine {
+func Setup(sampleRepo repositories.SampleRepository, testResultRepo repositories.TestResultRepository, publisher messaging.Publisher) *gin.Engine {
 	r := gin.New()
 	r.Use(middleware.Logging())
 	r.Use(gin.Recovery())
@@ -65,6 +67,33 @@ func Setup(sampleRepo repositories.SampleRepository, publisher messaging.Publish
 
 		c.Status(http.StatusAccepted)
 	})
-
+	r.PATCH("/test-results/:id", func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			_ = c.Error(err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid test result id"})
+			return
+		}
+		body, err := c.GetRawData()
+		if err != nil {
+			_ = c.Error(err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+			return
+		}
+		var updateProps repositories.TestResultUpdateProps
+		if err = json.Unmarshal(body, &updateProps); err != nil {
+			_ = c.Error(err)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Failed to unmarshal request body"})
+			return
+		}
+		updateProps.Id = id
+		err = testResultRepo.Update(c.Request.Context(), updateProps)
+		if err != nil {
+			_ = c.Error(err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to update test result"})
+			return
+		}
+		c.Status(http.StatusNoContent)
+	})
 	return r
 }

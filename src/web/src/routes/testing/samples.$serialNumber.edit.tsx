@@ -42,13 +42,13 @@ function EditSample() {
             testResults: [
               ...(old.testResults ?? []).filter(
                 (tr) =>
-                  tr.productTestSequence !== variables.productTestSequence,
+                  tr.canonicalTestName !== variables.canonicalTestName,
               ),
               {
                 id: "",
-                sampleId: variables.sampleId,
+                serialNumber: variables.serialNumber,
                 partNumber: variables.partNumber,
-                productTestSequence: variables.productTestSequence,
+                canonicalTestName: variables.canonicalTestName,
                 modifiers: variables.modifiers,
                 testResult: variables.testResult,
                 unit: variables.unit,
@@ -93,7 +93,7 @@ function EditSample() {
       const testResult = sample.testResults!.find(
         (tr) =>
           tr.partNumber === sample.partNumber &&
-          tr.productTestSequence === testConfiguration.productTestSequence,
+          tr.canonicalTestName === testConfiguration.test.canonicalTestName,
       );
       return {
         partNumber: product.partNumber,
@@ -166,9 +166,9 @@ function EditSample() {
                 const value = new FormData(e.currentTarget).get("testResult");
                 if (value === null || value === "") return;
                 submitTestResult({
-                  sampleId: sample!.id,
+                  serialNumber: sample!.serialNumber,
                   partNumber: test.partNumber,
-                  productTestSequence: test.productTestSequence,
+                  canonicalTestName: test.test.canonicalTestName,
                   modifiers: test.specificModifiers,
                   testResult: Number(value),
                   unit: test.unit,

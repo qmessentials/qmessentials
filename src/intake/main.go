@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -67,21 +66,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = js.Stream(ctx, "TEST_RESULTS"); err != nil {
-		if !errors.Is(err, jetstream.ErrStreamNotFound) {
-			slog.Error("failed to check JetStream stream", "error", err)
-			os.Exit(1)
-		}
-		if _, err = js.CreateStream(ctx, jetstream.StreamConfig{
-			Name:      "TEST_RESULTS",
-			Subjects:  []string{"test-results"},
-			Retention: jetstream.WorkQueuePolicy,
-		}); err != nil {
-			slog.Error("failed to create JetStream stream", "error", err)
-			os.Exit(1)
-		}
-	}
-
 	publisher := messaging.NewNatsPublisher(js)
 	subscriber := messaging.NewNatsSubscriber(js)
 
@@ -91,7 +75,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	r := routers.Setup(sampleRepo, publisher)
+	r := routers.Setup(sampleRepo, testResultRepo, publisher)
 
 	slog.Info("starting server", "port", port)
 	if err = r.Run(":" + port); err != nil {

@@ -9,9 +9,9 @@ export interface Sample {
 }
 
 export interface SubmitTestResultInput {
-    sampleId: number
+    serialNumber: string
     partNumber: string
-    productTestSequence: number
+    canonicalTestName: string
     modifiers: string[]
     testResult: number
     unit: string
@@ -22,9 +22,9 @@ export interface SubmitTestResultInput {
 
 export interface TestResult {
     id: string
-    sampleId: number
+    serialNumber: string
     partNumber: string
-    productTestSequence: number
+    canonicalTestName: string
     modifiers: string[]
     testResult: number
     unit: string

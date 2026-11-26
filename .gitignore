@@ -33,3 +33,6 @@ go.work.sum
 .junie/
 
 .DS_Store
+
+# Python development tools
+.venv/

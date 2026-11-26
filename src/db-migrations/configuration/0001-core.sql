@@ -1,10 +1,10 @@
-create table products (  
+create table products (
     id int generated always as identity primary key,
     part_number text not null unique,
-    product_name text not null,  
+    product_name text not null,
     is_active bool not null default true,
-    created_at timestamp with time zone not null default now(),  
-    updated_at timestamp with time zone not null default now()  
+    created_at timestamp with time zone not null default now(),
+    updated_at timestamp with time zone not null default now()
 );
 
 create table test_unit_categories (
@@ -28,7 +28,7 @@ create table tests (
     id int generated always as identity primary key,
     test_name text not null,
     test_unit_category text null references test_unit_categories (category),
-    documentation_references text[] not null,
+    documentation_references text [] not null,
     is_active bool not null default true,
     created_at timestamp with time zone not null default now(),
     updated_at timestamp with time zone not null default now()
@@ -46,12 +46,13 @@ create table product_test_configurations (
     id int generated always as identity primary key,
     product_id int not null references products (id),
     test_id int not null references tests (id),
-    specific_modifiers text[] null, --null means configuration applies to all modifiers; should match allowed modifier combinations for product test configuration, but nothing enforces that
+    -- Null applies to all modifiers. Values should match an allowed modifier combination.
+    specific_modifiers text [] null,
     unit text not null references test_units (unit),
     decimal_places int null,
     min_value double precision null,
     max_value double precision null,
-    documentation_references text[] null,
+    documentation_references text [] null,
     is_critical bool not null,
     is_active bool not null default true,
     created_at timestamp with time zone not null default now(),
@@ -62,7 +63,7 @@ create table product_test_configurations (
 create table product_test_configuration_allowed_modifier_combinations (
     id int generated always as identity primary key,
     product_test_configuration_id int not null references product_test_configurations (id),
-    modifier_combination text[] null, --null means a test result can be created without a modifier
+    modifier_combination text [] null, --null means a test result can be created without a modifier
     is_active bool not null default true,
     created_at timestamp with time zone not null default now(),
     updated_at timestamp with time zone not null default now()

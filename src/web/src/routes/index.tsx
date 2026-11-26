@@ -13,6 +13,12 @@ function Home() {
         { label: 'Samples', path: '/testing/samples' },
       ],
     },
+    {
+      title: 'Monitoring',
+      actions: [
+        { label: 'Subscriptions', path: '/monitoring/subscriptions' },
+      ],
+    },
   ];
 
   return (

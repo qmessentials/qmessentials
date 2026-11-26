@@ -11,6 +11,49 @@ import (
 
 type ProductRepository interface {
 	GetByPartNumber(ctx context.Context, partNumber string) (*models.Product, error)
+	GetMetadataByPartNumber(ctx context.Context, partNumber string) (*models.ProductMetadata, error)
+}
+
+func (r *ProductRepositoryPG) GetMetadataByPartNumber(ctx context.Context, partNumber string) (*models.ProductMetadata, error) {
+	row := r.db.QueryRowContext(ctx, `
+		select id, part_number, metadata_type, metadata_selector
+		from products
+		where part_number = $1`, partNumber)
+
+	var productID int
+	var metadata models.ProductMetadata
+	if err := row.Scan(
+		&productID,
+		&metadata.PartNumber,
+		&metadata.MetadataType,
+		&metadata.MetadataSelector,
+	); err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		select metadata_key, value_type
+		from product_metadata_definitions
+		where product_id = $1
+		  and is_active
+		order by metadata_key`, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	metadata.Definitions = make([]models.ProductMetadataDefinition, 0)
+	for rows.Next() {
+		var definition models.ProductMetadataDefinition
+		if err = rows.Scan(&definition.MetadataKey, &definition.ValueType); err != nil {
+			return nil, err
+		}
+		metadata.Definitions = append(metadata.Definitions, definition)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return &metadata, nil
 }
 
 type ProductRepositoryPG struct {
@@ -75,7 +118,7 @@ func (r *ProductRepositoryPG) getProductTestConfigurations(ctx context.Context, 
 }
 
 func (r *ProductRepositoryPG) getTests(ctx context.Context, testIds []int) ([]models.Test, error) {
-	rows, err := r.db.QueryContext(ctx, "select id, test_name, test_unit_category, coalesce(documentation_references, '{}'::text[]) as documentation_references, are_modifiers_allowed, is_active, created_at, updated_at from tests where id = any($1)", testIds)
+	rows, err := r.db.QueryContext(ctx, "select id, test_name, canonical_test_name, test_unit_category, coalesce(documentation_references, '{}'::text[]) as documentation_references, are_modifiers_allowed, is_active, created_at, updated_at from tests where id = any($1)", testIds)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +126,7 @@ func (r *ProductRepositoryPG) getTests(ctx context.Context, testIds []int) ([]mo
 	var tests []models.Test
 	for rows.Next() {
 		var test models.Test
-		err = rows.Scan(&test.ID, &test.TestName, &test.TestUnitCategory, r.typeMap.SQLScanner(&test.DocumentationReferences), &test.AreModifiersAllowed, &test.IsActive, &test.CreatedAt, &test.UpdatedAt)
+		err = rows.Scan(&test.ID, &test.TestName, &test.CanonicalTestName, &test.TestUnitCategory, r.typeMap.SQLScanner(&test.DocumentationReferences), &test.AreModifiersAllowed, &test.IsActive, &test.CreatedAt, &test.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
