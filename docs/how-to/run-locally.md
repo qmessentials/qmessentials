@@ -47,7 +47,8 @@ Then run:
 just run-web
 ```
 
-Vite prints the browser URL when it starts.
+The web application starts at `http://localhost:5174` by default. Vite prints
+the browser URL when it starts.
 
 ## Run database migrations manually
 
