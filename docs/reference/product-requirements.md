@@ -147,12 +147,10 @@ The initial experience favors power users. Users must be able to:
 
 - author filters using a supported text-query syntax
 - see syntax and validation errors before activation
-- dry-run a rule against historical results before saving it
 - inspect the live observation count, mean, and standard deviation used by a
   statistical subscription
 
-Validation, dry runs, and live evaluation
-must share a grammar and evaluation semantics.
+Validation and live evaluation must share a grammar and evaluation semantics.
 
 ## Notification output
 

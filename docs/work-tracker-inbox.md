@@ -40,8 +40,8 @@ decisions belong in `docs/architecture`.
 ## Subscription rules and user experience
 
 - Specify the query grammar, data types, comparisons, escaping, and normalization.
-- Ensure validation, dry runs, and broker matching share one evaluator.
-- Design dry runs and statistical diagnostics.
+- Ensure validation and broker matching share one evaluator.
+- Design statistical diagnostics.
 - Select notification channels and delivery, retry, and deduplication guarantees.
 
 ## Subscription event pipeline
