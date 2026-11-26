@@ -17,6 +17,26 @@ the desired future state. Treat code, tests, migrations, and deployment
 configuration as the source of truth for implementation status. Do not infer
 that a capability exists merely because documentation describes it.
 
+## Work planning
+
+- Work-app project #75 is the work tracker for QMEssentials. Its feature
+  roadmaps describe the intended sequence of capabilities; stories describe
+  the current, actionable increments. Do not treat a roadmap as a detailed
+  backlog or as evidence that a capability is implemented.
+- At the start of coding work, inspect the relevant work-app story and its
+  parent feature roadmap. If no story is specified, inspect the project's open
+  stories and choose the next actionable one based on its acceptance criteria,
+  dependencies, and the roadmap. Check the repository before deciding what
+  remains to be done, especially for older stories.
+- If no suitable story is open, use the roadmap to shape a small vertical story
+  with good-enough acceptance criteria. Create stories as work approaches rather
+  than planning the whole feature in detail. During planning sessions, revise
+  the roadmap when the intended capability or sequence changes.
+- Keep work-app story status and acceptance criteria aligned with verified work.
+  Update a roadmap's implementation status when the underlying capability
+  materially changes. Keep implementation details in stories and code, not in
+  roadmap summaries.
+
 ## Repository boundaries
 
 - The browser communicates with backend services through `src/apigw`.
