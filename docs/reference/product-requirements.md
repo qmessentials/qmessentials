@@ -38,32 +38,34 @@ in a separate environment, such as a Kubernetes namespace.
 - The system must retain an append-only result history for each sample.
 - Result history must be retained indefinitely unless an external process
   manages retention.
-- Voiding a result must create a separate history event without changing the
-  original recorded result.
-- Voiding is terminal. A replacement must be recorded as a new result.
-- A replacement must not explicitly link to a voided result. Current effective
-  result queries must exclude voided results.
+- Voiding is a terminal, sample-level exception for input errors. It must
+  create an append-only sample void event without changing the original
+  recorded results. Voiding sets the sample status to `INVALIDATED`; the sample
+  cannot receive new results or return to `TESTING`.
+- Current effective-result queries and the normal result interface must exclude
+  every result from a voided sample. The complete history remains available for
+  authorized audit queries.
 - Current effective results must be exposed through a materialized view with
-  one row per non-voided result.
-- Once the user navigates away from a voided result, the user interface must
-  not make it viewable.
-- A voided result must be excluded from future subscription matching and
-  statistical calculations.
-- When a result is voided, Intake must publish a NATS
+  one row per result from a non-voided sample.
+- Results from a voided sample must be excluded from future subscription
+  matching and statistical calculations.
+- When a sample is voided, Intake must publish a NATS
   `sample-history-invalidated` event with the sample identity. Downstream
   consumers must reload the sample history and rebuild affected derived state.
 - New results must use the normal incremental result-event path rather than a
   sample-history invalidation event.
 - Sample-history timestamps must provide user-facing order. Statistical
   calculations must not depend on input-event order.
-- Only an authorized user may void a result. A void event must record the
-  acting user, timestamp, and reason, and may include an optional comment.
+- Only a Quality Manager who has not submitted any recorded result for the
+  sample may void it. The check covers the sample's full result history. A void
+  event must record the acting user, timestamp, and reason, and may include an
+  optional comment.
 - The system must support both complete sample-history queries and queries of
   current effective results.
 - The intake service must compute and verify a digest for every result-history
-  event when it is read or replayed. The digest must use HMAC-SHA-256 when an
-  HMAC key is configured and SHA-256 otherwise, over a deterministic canonical
-  JSON representation of the event.
+  and sample-void event when it is read or replayed. The digest must use
+  HMAC-SHA-256 when an HMAC key is configured and SHA-256 otherwise, over a
+  deterministic canonical JSON representation of the event.
 - When HMAC is configured, the Intake application must use one key supplied
   through an environment-appropriate secret-management mechanism.
 - Every stored result is traceable to its sample, product, configured test,

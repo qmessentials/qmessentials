@@ -9,6 +9,7 @@ erDiagram
     PRODUCT ||--o{ PRODUCT_TEST : configures
     TEST ||--o{ PRODUCT_TEST : participates_in
     SAMPLE ||--o{ TEST_RESULT : produces
+    SAMPLE ||--o{ SAMPLE_VOID_EVENT : records
     PRODUCT_TEST ||--o{ TEST_RESULT : interprets
     TEST_RESULT ||--o{ TEST_RESULT_EVENT : records
     SUBSCRIPTION ||--o{ SUBSCRIPTION_HIT : matches
@@ -69,25 +70,25 @@ the entry session is not retained as a separate group.
 A result may retain an optional free-text comment when its product-test
 configuration enables comments.
 
-Test-result history is append-only. A void is a separate test-result event;
-it does not modify the original recorded result. Current-state projections may
-be derived from history for efficient queries, but history is authoritative.
-The current effective-results projection is a materialized view with one row
-per non-voided result.
-Voiding is terminal; a replacement is a new result. There is no explicit
-relationship between a replacement and a voided result.
-A void emits a NATS sample-history invalidation event carrying that sample's
-identity. New results use the normal incremental result-event path. Event
-timestamps order history for users; calculations do not depend on input-event
-order.
-Each event carries a digest computed by the intake service and verified when
-the event is read or replayed. The digest covers a deterministic canonical JSON
-representation of the event.
+Test-result history is append-only. Voiding is a sample-level exception for
+input errors, recorded as a separate sample void event. The original results
+remain in history, while current-state projections exclude all results from a
+voided sample. The current effective-results projection is a materialized view
+with one row per result from a non-voided sample. A voided sample cannot receive
+new results or be reopened; correcting its readings may require rework.
+
+A sample void emits a NATS `sample-history-invalidated` event carrying the
+sample identity. New results use the normal incremental result-event path.
+Event timestamps order history for users; calculations do not depend on
+input-event order. Each result-history and sample-void event carries a digest
+computed by Intake from deterministic canonical JSON and verified when read or
+replayed.
 When HMAC is configured, the Intake application uses one key from
 environment-appropriate secret management.
 
-A void event records the acting user, timestamp, and required reason. It may
-also include an optional comment.
+A sample void event records the acting Quality Manager, timestamp, and required
+reason. The manager must not have submitted any recorded result for the sample.
+The event may also include an optional comment.
 
 ## Subscriptions
 

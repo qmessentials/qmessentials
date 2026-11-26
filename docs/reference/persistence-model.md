@@ -155,7 +155,7 @@ structure and types. These rows are the product's queryable-field catalog.
 | `id`                       | identity integer         | Primary key                      |
 | `serial_number`            | text                     | Unique external identity         |
 | `part_number`              | text                     | Product identity snapshot        |
-| `is_available_for_testing` | boolean                  | Whether results may be submitted |
+| `status`                   | text                     | Current sample state             |
 | `created_at`, `updated_at` | timestamp with time zone | Audit timestamps                 |
 
 ### `test_result_events`
@@ -163,25 +163,43 @@ structure and types. These rows are the product's queryable-field catalog.
 | Column                                                             | Type                                     | Notes                                                            |
 | ------------------------------------------------------------------ | ---------------------------------------- | ---------------------------------------------------------------- |
 | `id`                                                               | UUID                                     | Primary key and event identity                                   |
-| `result_id`                                                        | UUID                                     | Identifies the result history; the recorded event establishes it |
-| `event_type`                                                       | text                                     | `recorded` or `voided`                                           |
+| `result_id`                                                        | UUID                                     | Stable identity of the recorded result                            |
 | `serial_number`, `part_number`, `canonical_test_name`, `modifiers` | text, text, text, text array             | Result identity snapshot on a recorded event                     |
+| `submitted_by`                                                     | text                                     | User who submitted the result                                    |
 | `parsing_scheme_version_id`                                      | integer                                  | Version that interpreted the serial number                       |
 | `result_value`, `input_values`                                     | double precision, double precision array | Numeric measurement and original input values                    |
 | `unit`, `decimal_places`, `min_value`, `max_value`                 | measurement fields                       | Interpretation snapshot on a recorded event                      |
 | `result_comment`                                                   | text                                     | Optional comment on a recorded event                              |
-| `acting_user`, `void_reason`, `void_comment`                       | text                                     | Void-event actor, required reason, optional comment              |
 | `occurred_at`                                                      | timestamp with time zone                 | User-facing history order                                        |
 | `digest_algorithm`, `digest_value`                                 | text                                     | Digest of canonical JSON using HMAC-SHA-256 or SHA-256           |
 
 Rows are authoritative, append-only history. The current effective-results
 projection is derived from these rows for efficient queries.
 
+### `sample_void_events`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID | Primary key and event identity |
+| `serial_number` | text | Sample being voided |
+| `acting_user` | text | Quality Manager who did not submit any result for the sample |
+| `reason`, `comment` | text | Required reason and optional comment |
+| `occurred_at` | timestamp with time zone | Void timestamp |
+| `digest_algorithm`, `digest_value` | text | Digest of canonical JSON using HMAC-SHA-256 or SHA-256 |
+
+Sample void events are append-only. Voiding sets the sample status to
+`INVALIDATED` and excludes all of its results from the effective-results
+projection without deleting their history.
+
+Intake inserts and reads the authoritative history tables. Sample-history
+queries read those tables directly; message replay is reserved for recovery.
+Current-state projections are derived and can be rebuilt from history.
+
 ### `current_test_results` materialized view
 
 | Column | Source | Notes |
 | --- | --- | --- |
-| result fields | `test_result_events` | One row for each non-voided result |
+| result fields | `test_result_events`, `sample_void_events` | One row for each result whose sample has no void event |
 
 The view is derived from authoritative history and is not itself authoritative.
 
