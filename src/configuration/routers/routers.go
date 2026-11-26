@@ -2,6 +2,8 @@
 package routers
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +25,10 @@ func Setup(productRepo repositories.ProductRepository, apiSharedSecret string) *
 	internal.GET("/products/:partNumber/metadata", func(c *gin.Context) {
 		metadata, err := productRepo.GetMetadataByPartNumber(c.Request.Context(), c.Param("partNumber"))
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+				return
+			}
 			_ = c.Error(err)
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch product metadata"})
 			return

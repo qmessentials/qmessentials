@@ -3,8 +3,11 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/qmessentials/qmessentials/intake/models"
 )
@@ -12,7 +15,13 @@ import (
 type SampleRepository interface {
 	Get(ctx context.Context) ([]models.Sample, error)
 	GetBySerialNumber(ctx context.Context, serialNumber string) (*models.Sample, error)
+	Create(ctx context.Context, serialNumber, partNumber string) (*models.Sample, error)
+	Transition(ctx context.Context, serialNumber, from, to string) (*models.Sample, error)
 }
+
+var ErrSampleNotFound = errors.New("sample not found")
+var ErrDuplicateSerial = errors.New("serial number already exists")
+var ErrTransitionConflict = errors.New("sample status has changed")
 
 type SampleRepositoryPG struct {
 	db *pgxpool.Pool
@@ -58,10 +67,37 @@ func (r *SampleRepositoryPG) getSampleBySerialNumber(ctx context.Context, serial
 	row := r.db.QueryRow(ctx, "select id, serial_number, part_number, status, created_at, updated_at from samples where serial_number = $1", serialNumber)
 	var sample models.Sample
 	if err := row.Scan(&sample.ID, &sample.SerialNumber, &sample.PartNumber, &sample.Status, &sample.CreatedAt, &sample.UpdatedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrSampleNotFound
+		}
 		slog.Error("failed to scan sample row", "error", err)
 		return nil, err
 	}
 	return &sample, nil
+}
+
+func (r *SampleRepositoryPG) Create(ctx context.Context, serialNumber, partNumber string) (*models.Sample, error) {
+	var sample models.Sample
+	err := r.db.QueryRow(ctx, `insert into samples (serial_number, part_number, status)
+		values ($1, $2, 'TESTING') returning id, serial_number, part_number, status, created_at, updated_at`, serialNumber, partNumber).
+		Scan(&sample.ID, &sample.SerialNumber, &sample.PartNumber, &sample.Status, &sample.CreatedAt, &sample.UpdatedAt)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return nil, ErrDuplicateSerial
+	}
+	return &sample, err
+}
+
+func (r *SampleRepositoryPG) Transition(ctx context.Context, serialNumber, from, to string) (*models.Sample, error) {
+	var sample models.Sample
+	err := r.db.QueryRow(ctx, `update samples set status = $3, updated_at = now()
+		where serial_number = $1 and status = $2
+		returning id, serial_number, part_number, status, created_at, updated_at`, serialNumber, from, to).
+		Scan(&sample.ID, &sample.SerialNumber, &sample.PartNumber, &sample.Status, &sample.CreatedAt, &sample.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrTransitionConflict
+	}
+	return &sample, err
 }
 
 func (r *SampleRepositoryPG) getTestResultsForSample(ctx context.Context, serialNumber string) ([]models.TestResult, error) {
