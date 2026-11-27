@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { sampleQueries } from '@/lib/intake/queries.ts'
 import { sampleMutations } from '@/lib/intake/mutations.ts'
+import { productQueries } from '@/lib/configuration/queries.ts'
 import { Input } from '@/components/ui/input.tsx'
 import { Button } from '@/components/ui/button.tsx'
 import { useState } from 'react'
@@ -20,6 +21,7 @@ export const Route = createFileRoute('/testing/samples/')({
 
 function TestingSamples() {
   const { data: samples } = useQuery(sampleQueries.all())
+  const { data: products, error: productsError, isPending: productsLoading } = useQuery(productQueries.all())
   const queryClient = useQueryClient()
   const [serialNumber, setSerialNumber] = useState('')
   const [partNumber, setPartNumber] = useState('')
@@ -43,10 +45,17 @@ function TestingSamples() {
         e.preventDefault()
         create.mutate({serialNumber: serialNumber.trim(), partNumber: partNumber.trim()})
       }}>
+        <Input aria-label="Product part number" placeholder="Search product part number" list="sample-products" value={partNumber} onChange={e => setPartNumber(e.target.value)} required className="max-w-xs" />
+        <datalist id="sample-products">
+          {products?.map(product => (
+            <option key={product.id} value={product.partNumber} label={product.productName} />
+          ))}
+        </datalist>
         <Input aria-label="New serial number" placeholder="Serial number" value={serialNumber} onChange={e => setSerialNumber(e.target.value)} required className="max-w-xs" />
-        <Input aria-label="Product part number" placeholder="Product part number" value={partNumber} onChange={e => setPartNumber(e.target.value)} required className="max-w-xs" />
         <Button type="submit" disabled={create.isPending}>Register sample</Button>
       </form>
+      {productsLoading && <p className="mb-4 text-sm text-gray-500">Loading products…</p>}
+      {productsError && <p role="alert" className="mb-4 text-red-600">{productsError.message}</p>}
       {create.error && <p role="alert" className="mb-4 text-red-600">{create.error.message}</p>}
       <Input aria-label="Find sample by serial number" placeholder="Find by serial number" value={search} onChange={e => setSearch(e.target.value)} className="mb-4 max-w-sm" />
       

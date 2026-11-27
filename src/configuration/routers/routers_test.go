@@ -12,7 +12,49 @@ import (
 )
 
 type productRepositoryStub struct {
-	metadata *models.ProductMetadata
+	metadata   *models.ProductMetadata
+	products   []models.Product
+	activeOnly *bool
+}
+
+func (r productRepositoryStub) ListProducts(_ context.Context, activeOnly bool) ([]models.Product, error) {
+	if r.activeOnly != nil {
+		*r.activeOnly = activeOnly
+	}
+	return r.products, nil
+}
+
+func TestListProducts(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, test := range []struct {
+		name, path string
+		want       bool
+		status     int
+	}{
+		{"default", "/products", true, http.StatusOK},
+		{"active only", "/products?activeOnly=true", true, http.StatusOK},
+		{"all products", "/products?activeOnly=false", false, http.StatusOK},
+		{"invalid flag", "/products?activeOnly=maybe", false, http.StatusBadRequest},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var actual bool
+			repo := productRepositoryStub{
+				products:   []models.Product{{ID: 1, PartNumber: "P-100", ProductName: "Example", IsActive: true}},
+				activeOnly: &actual,
+			}
+			request := httptest.NewRequest(http.MethodGet, test.path, nil)
+			request.Header.Set("X-Internal-Token", "secret")
+			request.Header.Set("X-User-Id", "technician")
+			response := httptest.NewRecorder()
+			Setup(repo, "secret").ServeHTTP(response, request)
+			if response.Code != test.status {
+				t.Fatalf("status: got %d, want %d", response.Code, test.status)
+			}
+			if test.status == http.StatusOK && (actual != test.want || !strings.Contains(response.Body.String(), `"partNumber":"P-100"`)) {
+				t.Fatalf("unexpected product list: activeOnly=%v body=%s", actual, response.Body.String())
+			}
+		})
+	}
 }
 
 func (r productRepositoryStub) GetByPartNumber(context.Context, string) (*models.Product, error) {

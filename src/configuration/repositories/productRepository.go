@@ -12,6 +12,37 @@ import (
 type ProductRepository interface {
 	GetByPartNumber(ctx context.Context, partNumber string) (*models.Product, error)
 	GetMetadataByPartNumber(ctx context.Context, partNumber string) (*models.ProductMetadata, error)
+	ListProducts(ctx context.Context, activeOnly bool) ([]models.Product, error)
+}
+
+type ProductRepositoryPG struct {
+	db      *sql.DB
+	typeMap *pgtype.Map
+}
+
+func NewProductRepositoryPG(db *sql.DB) *ProductRepositoryPG {
+	return &ProductRepositoryPG{db, pgtype.NewMap()}
+}
+
+func (r *ProductRepositoryPG) ListProducts(ctx context.Context, activeOnly bool) ([]models.Product, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		select id, part_number, product_name, is_active from products
+		where (not $1 or is_active)
+		order by part_number`, activeOnly)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	products := make([]models.Product, 0)
+	for rows.Next() {
+		var product models.Product
+		if err := rows.Scan(&product.ID, &product.PartNumber, &product.ProductName, &product.IsActive); err != nil {
+			return nil, err
+		}
+		product.ProductTestConfigurations = []models.ProductTestConfiguration{}
+		products = append(products, product)
+	}
+	return products, rows.Err()
 }
 
 func (r *ProductRepositoryPG) GetMetadataByPartNumber(ctx context.Context, partNumber string) (*models.ProductMetadata, error) {
@@ -56,23 +87,10 @@ func (r *ProductRepositoryPG) GetMetadataByPartNumber(ctx context.Context, partN
 	return &metadata, nil
 }
 
-type ProductRepositoryPG struct {
-	db      *sql.DB
-	typeMap *pgtype.Map
-}
-
-func NewProductRepositoryPG(db *sql.DB) *ProductRepositoryPG {
-	return &ProductRepositoryPG{db, pgtype.NewMap()}
-}
-
 func (r *ProductRepositoryPG) GetByPartNumber(ctx context.Context, partNumber string) (*models.Product, error) {
-	return r.getProductByPartNumber(ctx, partNumber)
-}
-
-func (r *ProductRepositoryPG) getProductByPartNumber(ctx context.Context, partNumber string) (*models.Product, error) {
-	row := r.db.QueryRowContext(ctx, "select id, part_number, product_name, is_active, created_at, updated_at from products where part_number = $1", partNumber)
+	row := r.db.QueryRowContext(ctx, "select id, part_number, product_name, is_active from products where part_number = $1", partNumber)
 	var product models.Product
-	err := row.Scan(&product.ID, &product.PartNumber, &product.ProductName, &product.IsActive, &product.CreatedAt, &product.UpdatedAt)
+	err := row.Scan(&product.ID, &product.PartNumber, &product.ProductName, &product.IsActive)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +115,9 @@ func (r *ProductRepositoryPG) getProductTestConfigurations(ctx context.Context, 
 			return nil, err
 		}
 		productTestConfigurations = append(productTestConfigurations, productTestConfiguration)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	testIds := make([]int, 0)
 	for _, productTestConfiguration := range productTestConfigurations {
@@ -131,6 +152,9 @@ func (r *ProductRepositoryPG) getTests(ctx context.Context, testIds []int) ([]mo
 			return nil, err
 		}
 		tests = append(tests, test)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return tests, nil
 }

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/qmessentials/qmessentials/configuration/middleware"
@@ -38,6 +39,24 @@ func Setup(productRepo repositories.ProductRepository, apiSharedSecret string) *
 
 	authorized := internal.Group("/")
 	authorized.Use(middleware.AuthenticatedUser())
+	authorized.GET("/products", func(c *gin.Context) {
+		activeOnly := true
+		if raw, present := c.GetQuery("activeOnly"); present {
+			var err error
+			activeOnly, err = strconv.ParseBool(raw)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "activeOnly must be a boolean"})
+				return
+			}
+		}
+		products, err := productRepo.ListProducts(c.Request.Context(), activeOnly)
+		if err != nil {
+			_ = c.Error(err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
+			return
+		}
+		c.JSON(http.StatusOK, products)
+	})
 	authorized.GET("/products/:partNumber", func(c *gin.Context) {
 		product, err := productRepo.GetByPartNumber(c.Request.Context(), c.Param("partNumber"))
 		if err != nil {

@@ -2,6 +2,7 @@ export interface Product {
     id: number
     partNumber: string
     productName: string
+    isActive: boolean
     productTestConfigurations: ProductTestConfiguration[]
 }
 
