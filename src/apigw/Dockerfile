@@ -10,8 +10,8 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the source code
-COPY *.go ./
+# Copy the source code, including the auth and routers packages
+COPY . .
 
 # Build the application
 # CGO_ENABLED=0 produces a statically linked binary that works in minimal images

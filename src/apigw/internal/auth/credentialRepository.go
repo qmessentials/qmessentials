@@ -1,4 +1,4 @@
-package main
+package auth
 
 import (
 	"context"
@@ -8,34 +8,38 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type sqlCredentialRepository struct{ db *sql.DB }
+type SQLCredentialRepository struct{ db *sql.DB }
 
-func (r sqlCredentialRepository) get(ctx context.Context, id string) (credentialRecord, error) {
-	var record credentialRecord
+func NewSQLCredentialRepository(db *sql.DB) CredentialRepository {
+	return SQLCredentialRepository{db: db}
+}
+
+func (r SQLCredentialRepository) Get(ctx context.Context, id string) (CredentialRecord, error) {
+	var record CredentialRecord
 	err := r.db.QueryRowContext(ctx, `select user_id, password_hash, disabled from users where user_id = $1`, id).
 		Scan(&record.UserID, &record.PasswordHash, &record.Disabled)
 	if errors.Is(err, sql.ErrNoRows) {
-		return credentialRecord{}, errUserNotFound
+		return CredentialRecord{}, ErrUserNotFound
 	}
 	return record, err
 }
 
-func (r sqlCredentialRepository) create(ctx context.Context, id, hash string) error {
+func (r SQLCredentialRepository) Create(ctx context.Context, id, hash string) error {
 	_, err := r.db.ExecContext(ctx, `insert into users (user_id, password_hash) values ($1, $2)`, id, hash)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		return errUserExists
+		return ErrUserExists
 	}
 	return err
 }
 
-func (r sqlCredentialRepository) setPassword(ctx context.Context, id, hash string) error {
+func (r SQLCredentialRepository) SetPassword(ctx context.Context, id, hash string) error {
 	result, err := r.db.ExecContext(ctx,
 		`update users set password_hash = $2, updated_at = now() where user_id = $1`, id, hash)
 	return affectedUser(result, err)
 }
 
-func (r sqlCredentialRepository) setDisabled(ctx context.Context, id string, disabled bool) error {
+func (r SQLCredentialRepository) SetDisabled(ctx context.Context, id string, disabled bool) error {
 	result, err := r.db.ExecContext(ctx,
 		`update users set disabled = $2, updated_at = now() where user_id = $1`, id, disabled)
 	return affectedUser(result, err)
@@ -50,7 +54,7 @@ func affectedUser(result sql.Result, err error) error {
 		return err
 	}
 	if count == 0 {
-		return errUserNotFound
+		return ErrUserNotFound
 	}
 	return nil
 }

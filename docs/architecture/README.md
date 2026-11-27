@@ -24,3 +24,4 @@ whose context or consequences have materially changed.
 - [0003: Use an API gateway as the browser backend](0003-use-an-api-gateway-as-the-browser-backend.md)
 - [0004: Use ordered SQL migration files](0004-use-ordered-sql-migration-files.md)
 - [0005: Store application configuration in database tables](0005-store-application-configuration-in-database-tables.md)
+- [0006: Keep business logic in the application](0006-keep-business-logic-in-the-application.md)
