@@ -1,6 +1,6 @@
 export const apiUrl = new URL(import.meta.env.VITE_API_URL)
 
-export async function getSession (): Promise<{ userId: string } | null> {
+export async function getSession (): Promise<{ userId: string; roles: string[] } | null> {
     const response = await fetch(`${apiUrl}/session`, {credentials: 'include'})
     if (response.status === 401) return null
     if (!response.ok) throw new Error('Session request failed')

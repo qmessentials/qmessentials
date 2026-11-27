@@ -73,6 +73,8 @@ services:
       DB_NAME: "${AUTH_DB_NAME:-${CONFIGURATION_DB_NAME:-qmessentials}}"
       DB_USER: "${AUTH_DB_USER:-${CONFIGURATION_DB_USER:-postgres}}"
       DB_PASSWORD: "${AUTH_DB_PASSWORD:-${CONFIGURATION_DB_PASSWORD:-postgres}}"
+      BOOTSTRAP_ADMIN_USER_ID: "${BOOTSTRAP_ADMIN_USER_ID:-}"
+      BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD:-}"
     depends_on:
       postgres:
         condition: service_healthy

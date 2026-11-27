@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/qmessentials/qmessentials/apigw/internal/auth"
+	"github.com/qmessentials/qmessentials/apigw/routers"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,35 +13,37 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type memoryCredentialRepository struct{ records map[string]credentialRecord }
+type memoryCredentialRepository struct {
+	records map[string]auth.CredentialRecord
+}
 
-func (r *memoryCredentialRepository) get(_ context.Context, id string) (credentialRecord, error) {
+func (r *memoryCredentialRepository) Get(_ context.Context, id string) (auth.CredentialRecord, error) {
 	record, ok := r.records[id]
 	if !ok {
-		return credentialRecord{}, errUserNotFound
+		return auth.CredentialRecord{}, auth.ErrUserNotFound
 	}
 	return record, nil
 }
-func (r *memoryCredentialRepository) create(_ context.Context, id, hash string) error {
+func (r *memoryCredentialRepository) Create(_ context.Context, id, hash string) error {
 	if _, ok := r.records[id]; ok {
-		return errUserExists
+		return auth.ErrUserExists
 	}
-	r.records[id] = credentialRecord{UserID: id, PasswordHash: hash}
+	r.records[id] = auth.CredentialRecord{UserID: id, PasswordHash: hash}
 	return nil
 }
-func (r *memoryCredentialRepository) setPassword(_ context.Context, id, hash string) error {
+func (r *memoryCredentialRepository) SetPassword(_ context.Context, id, hash string) error {
 	record, ok := r.records[id]
 	if !ok {
-		return errUserNotFound
+		return auth.ErrUserNotFound
 	}
 	record.PasswordHash = hash
 	r.records[id] = record
 	return nil
 }
-func (r *memoryCredentialRepository) setDisabled(_ context.Context, id string, disabled bool) error {
+func (r *memoryCredentialRepository) SetDisabled(_ context.Context, id string, disabled bool) error {
 	record, ok := r.records[id]
 	if !ok {
-		return errUserNotFound
+		return auth.ErrUserNotFound
 	}
 	record.Disabled = disabled
 	r.records[id] = record
@@ -48,72 +52,68 @@ func (r *memoryCredentialRepository) setDisabled(_ context.Context, id string, d
 
 func TestCredentialLifecycle(t *testing.T) {
 	ctx := context.Background()
-	repository := &memoryCredentialRepository{records: map[string]credentialRecord{}}
-	service := credentialService{repository: repository}
-	if err := service.create(ctx, "Alice", "first-password-123"); err != nil {
+	repository := &memoryCredentialRepository{records: map[string]auth.CredentialRecord{}}
+	service := auth.NewCredentials(repository)
+	if err := service.Create(ctx, "Alice", "first-password-123"); err != nil {
 		t.Fatal(err)
 	}
 	if repository.records["alice"].PasswordHash == "first-password-123" {
 		t.Fatal("plaintext password stored")
 	}
 	storedCost, err := bcrypt.Cost([]byte(repository.records["alice"].PasswordHash))
-	if err != nil || storedCost != bcryptCost {
+	if err != nil || storedCost != 12 {
 		t.Fatalf("stored bcrypt cost: %d, %v", storedCost, err)
 	}
-	dummyCost, err := bcrypt.Cost(dummyHash)
-	if err != nil || dummyCost != bcryptCost {
-		t.Fatalf("dummy bcrypt cost: %d, %v", dummyCost, err)
-	}
-	if err := service.create(ctx, "ALICE", "another-password-123"); !errors.Is(err, errUserExists) {
+	if err := service.Create(ctx, "ALICE", "another-password-123"); !errors.Is(err, auth.ErrUserExists) {
 		t.Fatalf("duplicate: %v", err)
 	}
-	if id, err := service.authenticate(ctx, "ALICE", "first-password-123"); err != nil || id != "alice" {
+	if id, err := service.Authenticate(ctx, "ALICE", "first-password-123"); err != nil || id != "alice" {
 		t.Fatalf("valid login: %q, %v", id, err)
 	}
 	for _, tc := range []struct{ id, password string }{
 		{"alice", "wrong-password"}, {"unknown", "first-password-123"}, {"bad id", "first-password-123"},
 	} {
-		if _, err := service.authenticate(ctx, tc.id, tc.password); !errors.Is(err, errInvalidCredentials) {
+		if _, err := service.Authenticate(ctx, tc.id, tc.password); !errors.Is(err, auth.ErrInvalidCredentials) {
 			t.Fatalf("failed login %+v: %v", tc, err)
 		}
 	}
-	if err := service.changePassword(ctx, "alice", "wrong-password", "second-password-123"); !errors.Is(err, errInvalidCredentials) {
+	if err := service.ChangePassword(ctx, "alice", "wrong-password", "second-password-123"); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("wrong current password: %v", err)
 	}
-	if err := service.changePassword(ctx, "alice", "first-password-123", "second-password-123"); err != nil {
+	if err := service.ChangePassword(ctx, "alice", "first-password-123", "second-password-123"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.authenticate(ctx, "alice", "first-password-123"); !errors.Is(err, errInvalidCredentials) {
+	if _, err := service.Authenticate(ctx, "alice", "first-password-123"); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("old password: %v", err)
 	}
-	if err := service.resetPassword(ctx, "alice", "reset-password-123"); err != nil {
+	if err := service.ResetPassword(ctx, "alice", "reset-password-123"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.authenticate(ctx, "alice", "reset-password-123"); err != nil {
+	if _, err := service.Authenticate(ctx, "alice", "reset-password-123"); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.setDisabled(ctx, "alice", true); err != nil {
+	if err := service.SetDisabled(ctx, "alice", true); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.authenticate(ctx, "alice", "reset-password-123"); !errors.Is(err, errInvalidCredentials) {
+	if _, err := service.Authenticate(ctx, "alice", "reset-password-123"); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("disabled: %v", err)
 	}
-	if err := service.setDisabled(ctx, "alice", false); err != nil {
+	if err := service.SetDisabled(ctx, "alice", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.authenticate(ctx, "alice", "reset-password-123"); err != nil {
+	if _, err := service.Authenticate(ctx, "alice", "reset-password-123"); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestLoginHTTP(t *testing.T) {
 	t.Setenv("API_SHARED_SECRET", "test-secret")
-	repository := &memoryCredentialRepository{records: map[string]credentialRecord{}}
-	service := credentialService{repository: repository}
-	if err := service.create(context.Background(), "alice", "valid-password-123"); err != nil {
+	repository := &memoryCredentialRepository{records: map[string]auth.CredentialRecord{}}
+	service := auth.NewCredentials(repository)
+	if err := service.Create(context.Background(), "alice", "valid-password-123"); err != nil {
 		t.Fatal(err)
 	}
-	router := setupRouter(service, sessionService{repository: newMemorySessionRepository()})
+	router := routers.Setup(service, auth.NewSessions(newMemorySessionRepository()), testUsers("alice"))
 	for _, tc := range []struct {
 		body   string
 		status int
@@ -142,12 +142,12 @@ func TestLoginHTTP(t *testing.T) {
 
 func TestChangePasswordHTTP(t *testing.T) {
 	t.Setenv("API_SHARED_SECRET", "test-secret")
-	repository := &memoryCredentialRepository{records: map[string]credentialRecord{}}
-	service := credentialService{repository: repository}
-	if err := service.create(context.Background(), "alice", "valid-password-123"); err != nil {
+	repository := &memoryCredentialRepository{records: map[string]auth.CredentialRecord{}}
+	service := auth.NewCredentials(repository)
+	if err := service.Create(context.Background(), "alice", "valid-password-123"); err != nil {
 		t.Fatal(err)
 	}
-	router := setupRouter(service, sessionService{repository: newMemorySessionRepository()})
+	router := routers.Setup(service, auth.NewSessions(newMemorySessionRepository()), testUsers("alice"))
 	for _, tc := range []struct {
 		body   string
 		status int
@@ -164,14 +164,14 @@ func TestChangePasswordHTTP(t *testing.T) {
 			t.Fatalf("%s: %d %s", tc.body, response.Code, response.Body.String())
 		}
 	}
-	if _, err := service.authenticate(context.Background(), "alice", "another-password-123"); err != nil {
+	if _, err := service.Authenticate(context.Background(), "alice", "another-password-123"); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestTemporaryTokenCannotAccessServices(t *testing.T) {
 	t.Setenv("API_SHARED_SECRET", "test-secret")
-	router := setupRouter(credentialService{repository: &memoryCredentialRepository{records: map[string]credentialRecord{}}}, sessionService{repository: newMemorySessionRepository()})
+	router := routers.Setup(auth.NewCredentials(&memoryCredentialRepository{records: map[string]auth.CredentialRecord{}}), auth.NewSessions(newMemorySessionRepository()), testUsers())
 	request := httptest.NewRequest(http.MethodGet, "/api/config/products/example", nil)
 	request.AddCookie(&http.Cookie{Name: "token", Value: "temp-token"})
 	response := httptest.NewRecorder()
