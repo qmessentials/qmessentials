@@ -47,7 +47,8 @@ Then run:
 just run-web
 ```
 
-Vite prints the browser URL when it starts.
+The web application starts at `http://localhost:5174` by default. Vite prints
+the browser URL when it starts.
 
 ## Run database migrations manually
 
@@ -58,10 +59,14 @@ run one migration stream or all streams:
 just migrate-configuration
 just migrate-intake
 just migrate-subscription
+just migrate-auth
 just migrate-all
 ```
 
 Compose normally runs migrations through its `migrate` service.
+The auth stream uses `AUTH_DB_*` settings when present and otherwise
+shares the configuration database connection. See
+[Manage user credentials](manage-user-credentials.md) for account setup.
 
 ## Lint SQL
 

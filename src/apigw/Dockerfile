@@ -11,11 +11,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the source code
-COPY main.go ./
+COPY *.go ./
 
 # Build the application
 # CGO_ENABLED=0 produces a statically linked binary that works in minimal images
-RUN CGO_ENABLED=0 GOOS=linux go build -o apigw main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o apigw .
 
 # Stage 2: Runtime
 # Using alpine for a small footprint while keeping basic shell utilities
