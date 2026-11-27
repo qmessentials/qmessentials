@@ -10,10 +10,14 @@ and new password to `POST /api/change-password`. The new password must be 12 to
 72 bytes. User IDs are case-insensitive and use 3 to 64 letters, digits, dots,
 underscores, or hyphens.
 
-`POST /api/login` checks a user ID and password and returns the canonical user
-ID on success. It rejects unknown users, wrong passwords, and disabled users
-with the same response. The endpoint does not create a session. Session issuance
-and access to protected routes are part of the next authentication increment.
+`POST /api/login` checks a user ID and password, returns the canonical user ID
+and expiry, and sets an HttpOnly session cookie. It rejects unknown users, wrong
+passwords, and disabled users with the same response. Protected gateway routes
+require that cookie. Sessions expire after 12 hours and do not renew
+automatically. `POST /api/session/renew` rotates a valid session token and starts
+a new 12-hour period. `GET /api/session` returns the current user ID.
+`POST /api/logout` revokes the current session and clears its cookie. Expired or
+revoked sessions cannot be renewed or used for protected requests.
 
 Account setup, password reset, and account disabling do not yet have an
 operator or administrator interface.

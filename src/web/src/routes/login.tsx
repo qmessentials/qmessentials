@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import {useMutation} from "@tanstack/react-query";
+import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {useState, type FormEvent} from "react";
 import {logIn} from "../lib/api.ts";
 
@@ -8,10 +8,12 @@ export const Route = createFileRoute('/login')({
 })
 
 function Login() {
+    const queryClient = useQueryClient()
     const [userId, setUserId] = useState('')
     const [password, setPassword] = useState('')
     const loginMutation = useMutation({
-        mutationFn: logIn
+        mutationFn: logIn,
+        onSuccess: () => queryClient.invalidateQueries({queryKey: ['session']})
     })
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -36,7 +38,7 @@ function Login() {
           <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             type="submit" disabled={loginMutation.isPending}>Log In</button>
           {loginMutation.isError && <p role="alert">Invalid user ID or password.</p>}
-          {loginMutation.isSuccess && <p role="status">Credentials verified.</p>}
+          {loginMutation.isSuccess && <p role="status">Signed in.</p>}
         </form>
     </div>
   )

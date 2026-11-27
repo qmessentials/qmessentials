@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -18,7 +19,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func setupRouter(credentials credentialService) *gin.Engine {
+func setupRouter(credentials credentialService, sessions sessionService) *gin.Engine {
 	r := gin.Default()
 
 	webUrl := os.Getenv("WEB_URL")
@@ -92,7 +93,54 @@ func setupRouter(credentials credentialService) *gin.Engine {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 			return
 		}
+		token, expires, err := sessions.create(c.Request.Context(), userID)
+		if err != nil {
+			slog.Error("Failed to create session", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		setSessionCookie(c, token, expires)
+		c.JSON(http.StatusOK, gin.H{"userId": userID, "expiresAt": expires})
+	})
+	r.POST("/api/session/renew", func(c *gin.Context) {
+		token, err := sessionToken(c)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+		userID, nextToken, expires, err := sessions.renew(c.Request.Context(), token)
+		if err != nil {
+			sessionError(c, err)
+			return
+		}
+		setSessionCookie(c, nextToken, expires)
+		c.JSON(http.StatusOK, gin.H{"userId": userID, "expiresAt": expires})
+	})
+	r.GET("/api/session", func(c *gin.Context) {
+		token, err := sessionToken(c)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+		userID, err := sessions.validate(c.Request.Context(), token)
+		if err != nil {
+			sessionError(c, err)
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"userId": userID})
+	})
+	r.POST("/api/logout", func(c *gin.Context) {
+		token, err := sessionToken(c)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+		if err := sessions.revoke(c.Request.Context(), token); err != nil {
+			sessionError(c, err)
+			return
+		}
+		clearSessionCookie(c)
+		c.Status(http.StatusNoContent)
 	})
 	r.POST("/api/change-password", func(c *gin.Context) {
 		var request struct {
@@ -121,27 +169,31 @@ func setupRouter(credentials credentialService) *gin.Engine {
 		c.Status(http.StatusNoContent)
 	})
 	r.Any("/api/intake/*proxyPath", func(c *gin.Context) {
-		proxyRequest(c, apiSharedSecret, intakeUrl)
+		proxyRequest(c, sessions, apiSharedSecret, intakeUrl)
 	})
 	r.Any("/api/config/*proxyPath", func(c *gin.Context) {
-		proxyRequest(c, apiSharedSecret, configUrl)
+		proxyRequest(c, sessions, apiSharedSecret, configUrl)
 	})
 	r.Any("/api/subscription/*proxyPath", func(c *gin.Context) {
-		proxyRequest(c, apiSharedSecret, subscriptionUrl)
+		proxyRequest(c, sessions, apiSharedSecret, subscriptionUrl)
 	})
 	return r
 }
 
-func proxyRequest(c *gin.Context, apiSharedSecret string, apiUrl *url.URL) {
-	user, err := getAuthenticatedRequestUser(c)
+func proxyRequest(c *gin.Context, sessions sessionService, apiSharedSecret string, apiUrl *url.URL) {
+	token, err := sessionToken(c)
 	if err != nil {
-		slog.Warn("unauthorized request", "error", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userID, err := sessions.validate(c.Request.Context(), token)
+	if err != nil {
+		sessionError(c, err)
 		return
 	}
 	proxyPath := c.Param("proxyPath")
 
-	slog.Info("proxying request", "path", proxyPath, "user", user.Name, "dest", apiUrl.Host)
+	slog.Info("proxying request", "path", proxyPath, "user", userID, "dest", apiUrl.Host)
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(req *httputil.ProxyRequest) {
 			req.SetXForwarded()
@@ -149,8 +201,10 @@ func proxyRequest(c *gin.Context, apiSharedSecret string, apiUrl *url.URL) {
 			req.Out.URL.Host = apiUrl.Host
 			req.Out.URL.Path = path.Join(apiUrl.Path, proxyPath)
 			req.Out.URL.RawQuery = c.Request.URL.RawQuery
+			req.Out.Header.Del("Cookie")
+			req.Out.Header.Del("Authorization")
 			req.Out.Header.Set("X-Internal-Token", apiSharedSecret)
-			req.Out.Header.Set("X-User-Id", user.Name)
+			req.Out.Header.Set("X-User-Id", userID)
 		},
 	}
 	proxy.ServeHTTP(c.Writer, c.Request)
@@ -174,7 +228,7 @@ func main() {
 	}
 	defer db.Close()
 	credentials := credentialService{repository: sqlCredentialRepository{db: db}}
-	r := setupRouter(credentials)
+	r := setupRouter(credentials, sessionService{repository: sqlSessionRepository{db: db}})
 	if err := r.Run(":" + port); err != nil {
 		slog.Error("server run failed", "error", err)
 		os.Exit(1)
@@ -208,12 +262,37 @@ func openAuthDB() (*sql.DB, error) {
 	return db, nil
 }
 
-type UserInfo struct {
-	ID    int      `json:"id"`
-	Name  string   `json:"name"`
-	Roles []string `json:"roles"`
+func sessionToken(c *gin.Context) (string, error) {
+	cookie, err := c.Request.Cookie(sessionCookieName)
+	if err != nil || cookie.Value == "" {
+		return "", errInvalidSession
+	}
+	return cookie.Value, nil
 }
 
-func getAuthenticatedRequestUser(c *gin.Context) (*UserInfo, error) {
-	return nil, errors.New("sessions are not implemented")
+func sessionError(c *gin.Context, err error) {
+	if errors.Is(err, errInvalidSession) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	slog.Error("Failed to access session", "error", err)
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+}
+
+func setSessionCookie(c *gin.Context, token string, expires time.Time) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name: sessionCookieName, Value: token, Path: "/api", Expires: expires,
+		HttpOnly: true, Secure: secureSessionCookie(c), SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func clearSessionCookie(c *gin.Context) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name: sessionCookieName, Path: "/api", MaxAge: -1,
+		HttpOnly: true, Secure: secureSessionCookie(c), SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func secureSessionCookie(c *gin.Context) bool {
+	return c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
 }
