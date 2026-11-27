@@ -113,7 +113,7 @@ func TestLoginHTTP(t *testing.T) {
 	if err := service.create(context.Background(), "alice", "valid-password-123"); err != nil {
 		t.Fatal(err)
 	}
-	router := setupRouter(service)
+	router := setupRouter(service, sessionService{repository: newMemorySessionRepository()})
 	for _, tc := range []struct {
 		body   string
 		status int
@@ -131,8 +131,8 @@ func TestLoginHTTP(t *testing.T) {
 		if response.Code != tc.status || !bytes.Contains(response.Body.Bytes(), []byte(tc.text)) {
 			t.Fatalf("%s: %d %s", tc.body, response.Code, response.Body.String())
 		}
-		if response.Header().Get("Set-Cookie") != "" {
-			t.Fatal("login issued a session cookie before session support exists")
+		if tc.status == http.StatusOK && !bytes.Contains([]byte(response.Header().Get("Set-Cookie")), []byte("HttpOnly")) {
+			t.Fatal("login did not issue an HttpOnly session cookie")
 		}
 		if bytes.Contains(response.Body.Bytes(), []byte("valid-password-123")) {
 			t.Fatal("password returned in response")
@@ -147,7 +147,7 @@ func TestChangePasswordHTTP(t *testing.T) {
 	if err := service.create(context.Background(), "alice", "valid-password-123"); err != nil {
 		t.Fatal(err)
 	}
-	router := setupRouter(service)
+	router := setupRouter(service, sessionService{repository: newMemorySessionRepository()})
 	for _, tc := range []struct {
 		body   string
 		status int
@@ -171,7 +171,7 @@ func TestChangePasswordHTTP(t *testing.T) {
 
 func TestTemporaryTokenCannotAccessServices(t *testing.T) {
 	t.Setenv("API_SHARED_SECRET", "test-secret")
-	router := setupRouter(credentialService{repository: &memoryCredentialRepository{records: map[string]credentialRecord{}}})
+	router := setupRouter(credentialService{repository: &memoryCredentialRepository{records: map[string]credentialRecord{}}}, sessionService{repository: newMemorySessionRepository()})
 	request := httptest.NewRequest(http.MethodGet, "/api/config/products/example", nil)
 	request.AddCookie(&http.Cookie{Name: "token", Value: "temp-token"})
 	response := httptest.NewRecorder()
