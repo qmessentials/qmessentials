@@ -40,10 +40,21 @@ migrate-subscription:
         --password "$SUBSCRIPTION_DB_PASSWORD" \
         --path ../db-migrations/subscription
 
+[working-directory("src/utils")]
+migrate-auth:
+    go run . migrate-db \
+        --host "${AUTH_DB_HOST:-$CONFIGURATION_DB_HOST}" \
+        --port "${AUTH_DB_PORT:-$CONFIGURATION_DB_PORT}" \
+        --database "${AUTH_DB_NAME:-$CONFIGURATION_DB_NAME}" \
+        --user "${AUTH_DB_USER:-$CONFIGURATION_DB_USER}" \
+        --password "${AUTH_DB_PASSWORD:-$CONFIGURATION_DB_PASSWORD}" \
+        --path ../db-migrations/auth
+
 migrate-all:
     just migrate-configuration
     just migrate-intake
     just migrate-subscription
+    just migrate-auth
 
 lint-sql:
     sqlfluff lint $(git ls-files '*.sql')

@@ -40,6 +40,11 @@ services:
       SUBSCRIPTION_DB_NAME: "${SUBSCRIPTION_DB_NAME:-qmessentials}"
       SUBSCRIPTION_DB_USER: "${SUBSCRIPTION_DB_USER:-postgres}"
       SUBSCRIPTION_DB_PASSWORD: "${SUBSCRIPTION_DB_PASSWORD:-postgres}"
+      AUTH_DB_HOST: "${AUTH_DB_HOST:-${CONFIGURATION_DB_HOST:-postgres}}"
+      AUTH_DB_PORT: "${AUTH_DB_PORT:-${CONFIGURATION_DB_PORT:-5432}}"
+      AUTH_DB_NAME: "${AUTH_DB_NAME:-${CONFIGURATION_DB_NAME:-qmessentials}}"
+      AUTH_DB_USER: "${AUTH_DB_USER:-${CONFIGURATION_DB_USER:-postgres}}"
+      AUTH_DB_PASSWORD: "${AUTH_DB_PASSWORD:-${CONFIGURATION_DB_PASSWORD:-postgres}}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +68,11 @@ services:
       CONFIG_URL: "http://configuration:8081"
       SUBSCRIPTION_URL: "http://subscription:8083"
       WEB_URL: "${WEB_URL}"
+      DB_HOST: "${AUTH_DB_HOST:-${CONFIGURATION_DB_HOST:-postgres}}"
+      DB_PORT: "${AUTH_DB_PORT:-${CONFIGURATION_DB_PORT:-5432}}"
+      DB_NAME: "${AUTH_DB_NAME:-${CONFIGURATION_DB_NAME:-qmessentials}}"
+      DB_USER: "${AUTH_DB_USER:-${CONFIGURATION_DB_USER:-postgres}}"
+      DB_PASSWORD: "${AUTH_DB_PASSWORD:-${CONFIGURATION_DB_PASSWORD:-postgres}}"
     depends_on:
       postgres:
         condition: service_healthy

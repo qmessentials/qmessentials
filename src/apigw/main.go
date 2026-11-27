@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
@@ -12,9 +15,10 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func setupRouter() *gin.Engine {
+func setupRouter(credentials credentialService) *gin.Engine {
 	r := gin.Default()
 
 	webUrl := os.Getenv("WEB_URL")
@@ -70,14 +74,51 @@ func setupRouter() *gin.Engine {
 		os.Exit(1)
 	}
 	r.POST("/api/login", func(c *gin.Context) {
-		c.SetCookie("token", "temp-token", 0, "/", "", false, true)
-		user, err := getUser("temp-user")
+		var request struct {
+			UserID   string `json:"userId" binding:"required"`
+			Password string `json:"password" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID and password are required"})
+			return
+		}
+		userID, err := credentials.authenticate(c.Request.Context(), request.UserID, request.Password)
 		if err != nil {
+			if errors.Is(err, errInvalidCredentials) {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID or password"})
+				return
+			}
 			slog.Error("Failed to authenticate user", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 			return
 		}
-		c.JSON(http.StatusOK, user)
+		c.JSON(http.StatusOK, gin.H{"userId": userID})
+	})
+	r.POST("/api/change-password", func(c *gin.Context) {
+		var request struct {
+			UserID      string `json:"userId" binding:"required"`
+			OldPassword string `json:"oldPassword" binding:"required"`
+			NewPassword string `json:"newPassword" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID, current password, and new password are required"})
+			return
+		}
+		err := credentials.changePassword(c.Request.Context(), request.UserID, request.OldPassword, request.NewPassword)
+		if errors.Is(err, errInvalidCredentials) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID or password"})
+			return
+		}
+		if errors.Is(err, errInvalidPassword) || errors.Is(err, errPasswordUnchanged) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if err != nil {
+			slog.Error("Failed to change password", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		c.Status(http.StatusNoContent)
 	})
 	r.Any("/api/intake/*proxyPath", func(c *gin.Context) {
 		proxyRequest(c, apiSharedSecret, intakeUrl)
@@ -126,11 +167,45 @@ func main() {
 
 	slog.Info("starting api gateway", "port", port)
 
-	r := setupRouter()
+	db, err := openAuthDB()
+	if err != nil {
+		slog.Error("auth database unavailable", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+	credentials := credentialService{repository: sqlCredentialRepository{db: db}}
+	r := setupRouter(credentials)
 	if err := r.Run(":" + port); err != nil {
 		slog.Error("server run failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+func openAuthDB() (*sql.DB, error) {
+	for _, name := range []string{"DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"} {
+		if os.Getenv(name) == "" {
+			return nil, fmt.Errorf("%s must be set", name)
+		}
+	}
+	address := &url.URL{
+		Scheme: "postgres", Host: os.Getenv("DB_HOST") + ":" + os.Getenv("DB_PORT"),
+		Path: os.Getenv("DB_NAME"),
+		User: url.UserPassword(os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD")),
+	}
+	query := address.Query()
+	query.Set("sslmode", "disable")
+	address.RawQuery = query.Encode()
+	db, err := sql.Open("pgx", address.String())
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return db, nil
 }
 
 type UserInfo struct {
@@ -140,32 +215,5 @@ type UserInfo struct {
 }
 
 func getAuthenticatedRequestUser(c *gin.Context) (*UserInfo, error) {
-	token, err := c.Cookie("token")
-	if err != nil {
-		return nil, err
-	}
-	userName, err := getUserNameFromToken(token)
-	if err != nil {
-		return nil, err
-	}
-	return getUser(userName)
-}
-
-func getUserNameFromToken(token string) (string, error) {
-	if token == "temp-token" {
-		return "temp-user", nil
-	}
-	return "", errors.New("invalid token")
-}
-
-func getUser(userName string) (*UserInfo, error) {
-	// TODO: get this from a database
-	if userName == "temp-user" {
-		return &UserInfo{
-			ID:    1,
-			Name:  userName,
-			Roles: []string{"temp-role"},
-		}, nil
-	}
-	return nil, errors.New("user not found")
+	return nil, errors.New("sessions are not implemented")
 }

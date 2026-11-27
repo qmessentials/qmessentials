@@ -1,13 +1,13 @@
 export const apiUrl = new URL(import.meta.env.VITE_API_URL)
 
-export async function logIn () {
+export async function logIn (credentials: { userId: string; password: string }) {
 
     const response = await fetch(`${apiUrl}/login`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify(credentials),
         credentials: 'include',
     })
 
